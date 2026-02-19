@@ -6,26 +6,27 @@ import '../config/env.js';
 const rawUrl = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '').trim();
 const token = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
 
-// Use a stable local variable for the URL. Defensively check for "undefined" string.
+// Use a stable local variable for the REAL connection URL.
 const finalUrl = (rawUrl && rawUrl !== 'undefined' && rawUrl !== 'null') ? rawUrl : 'file:./dev.db';
+const finalToken = (token && token !== 'undefined' && token !== 'null') ? token : undefined;
 
-// Ensure the environment variable is EXACTLY what we want for Prisma's internal validation
-process.env.DATABASE_URL = finalUrl;
+// CRITICAL FOR PRISMA ADAPTERS ON VERCEL:
+// The Prisma engine (binary) performs validation on DATABASE_URL even when using an adapter.
+// It expects a "file:" URL because provider="sqlite". If it sees "libsql://", it throws URL_INVALID.
+// Fix: Set the env var to a dummy file path, and use the real URL only in the adapter's client.
+process.env.DATABASE_URL = 'file:./dev.db';
 
-console.log(`[DB_INIT] Using URL: ${finalUrl.substring(0, 20)}...`);
+console.log(`[DB_INIT] Using Adapter for Turso: ${finalUrl.startsWith('libsql') || finalUrl.startsWith('http')}. Engine URL satisfied.`);
 
-// Direct LibSQL client for "Raw" queries as fallback
+// Direct LibSQL client for the adapter
 export const rawLibsql = createClient({
   url: finalUrl,
-  authToken: (token && token !== 'undefined' && token !== 'null') ? token : undefined
+  authToken: finalToken
 });
 
-// Prisma setup
 const useLibsql = finalUrl.startsWith('libsql') || finalUrl.startsWith('http');
 
+// Prisma setup
 export const prisma = useLibsql
-  ? new PrismaClient({
-    adapter: new PrismaLibSQL(rawLibsql),
-    datasources: { db: { url: finalUrl } }
-  })
+  ? new PrismaClient({ adapter: new PrismaLibSQL(rawLibsql) })
   : new PrismaClient();

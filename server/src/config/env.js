@@ -2,10 +2,13 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 
-const cwdEnvPath = path.resolve(process.cwd(), '.env');
-const workspaceServerEnvPath = path.resolve(process.cwd(), 'server', '.env');
-const envPath = fs.existsSync(cwdEnvPath) ? cwdEnvPath : workspaceServerEnvPath;
-dotenv.config({ path: envPath });
+const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
+if (!isVercel) {
+  const cwdEnvPath = path.resolve(process.cwd(), '.env');
+  const workspaceServerEnvPath = path.resolve(process.cwd(), 'server', '.env');
+  const envPath = fs.existsSync(cwdEnvPath) ? cwdEnvPath : workspaceServerEnvPath;
+  dotenv.config({ path: envPath });
+}
 
 function detectMpCredentialMode(value) {
   const v = String(value || '').trim();
