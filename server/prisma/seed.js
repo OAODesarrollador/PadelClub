@@ -1,8 +1,7 @@
 import bcrypt from 'bcryptjs';
-import { PrismaClient, StaffRole, ReservationStatus, CreatedByKind } from '@prisma/client';
+import { StaffRole, ReservationStatus, CreatedByKind } from './generated/client/index.js';
+import { prisma } from '../src/db/prisma.js';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');

@@ -72,6 +72,24 @@ router.get('/club/:slug', async (req, res) => {
   return res.json(club);
 });
 
+router.get('/debug-db', async (req, res) => {
+  try {
+    const clubCount = await prisma.club.count();
+    const demoClub = await prisma.club.findUnique({ where: { slug: 'club-paddle-demo' } });
+    return res.json({
+      ok: true,
+      clubCount,
+      demoClubFound: !!demoClub,
+      env: {
+        hasUrl: !!process.env.TURSO_DATABASE_URL,
+        hasToken: !!process.env.TURSO_AUTH_TOKEN
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'DEBUG_DB_FAILED', message: err.message });
+  }
+});
+
 router.get('/availability', async (req, res) => {
   const { clubId, date, duration } = req.query;
   if (!clubId || !date || !duration) return res.status(400).json({ error: 'MISSING_PARAMS' });
@@ -83,7 +101,10 @@ router.get('/availability', async (req, res) => {
   }
 
   const club = await resolveClub(String(clubId));
-  if (!club) return res.status(404).json({ error: 'CLUB_NOT_FOUND' });
+  if (!club) {
+    console.log(`Club not found for ID: ${clubId}`);
+    return res.status(404).json({ error: 'CLUB_NOT_FOUND', detail: `Club ${clubId} not found in database` });
+  }
 
   const activeRanges = getActiveRangesForDate(club.scheduleJson, String(date));
   const slots = buildDaySlots(String(date), 60);
@@ -273,21 +294,21 @@ router.post('/payments/mercadopago/preference', validate(mpPreferenceSchema), as
   const paymentMethodsByMode =
     req.body.mode === 'card'
       ? {
-          excluded_payment_types: [
-            { id: 'ticket' },
-            { id: 'atm' },
-            { id: 'bank_transfer' }
-          ]
-        }
+        excluded_payment_types: [
+          { id: 'ticket' },
+          { id: 'atm' },
+          { id: 'bank_transfer' }
+        ]
+      }
       : {
-          excluded_payment_types: [
-            { id: 'credit_card' },
-            { id: 'debit_card' },
-            { id: 'prepaid_card' },
-            { id: 'ticket' },
-            { id: 'atm' }
-          ]
-        };
+        excluded_payment_types: [
+          { id: 'credit_card' },
+          { id: 'debit_card' },
+          { id: 'prepaid_card' },
+          { id: 'ticket' },
+          { id: 'atm' }
+        ]
+      };
 
   const prefPayload = {
     items: [
@@ -381,9 +402,9 @@ router.post('/payments/mercadopago/card-pay', validate(mpCardPaySchema), async (
       identification:
         identificationType && identificationNumber
           ? {
-              type: identificationType,
-              number: identificationNumber
-            }
+            type: identificationType,
+            number: identificationNumber
+          }
           : undefined
     },
     external_reference: reservation.id
