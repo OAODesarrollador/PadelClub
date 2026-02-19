@@ -412,61 +412,61 @@ router.get('/payments/mercadopago/config', async (_req, res) => {
 });
 
 router.post('/payments/mercadopago/preference', validate(mpPreferenceSchema), async (req, res) => {
-  if (!env.mpAccessToken) return res.status(503).json({ error: 'MP_NOT_CONFIGURED' });
-
-  const reservation = await prisma.reservation.findUnique({
-    where: { id: req.body.reservationId },
-    include: { court: true, club: true }
-  });
-  if (!reservation) return res.status(404).json({ error: 'RESERVATION_NOT_FOUND' });
-
-  const title = `${reservation.club?.name || 'Club'} - ${reservation.court?.name || 'Cancha'}`;
-  const unitPrice = Number(reservation.amount || 0);
-  const successUrl = `${env.appBaseUrl}/confirmacion/${reservation.id}?payment=success`;
-  const pendingUrl = `${env.appBaseUrl}/confirmacion/${reservation.id}?payment=pending`;
-  const failureUrl = `${env.appBaseUrl}/confirmacion/${reservation.id}?payment=failure`;
-
-  const paymentMethodsByMode =
-    req.body.mode === 'card'
-      ? {
-        excluded_payment_types: [
-          { id: 'ticket' },
-          { id: 'atm' },
-          { id: 'bank_transfer' }
-        ]
-      }
-      : {
-        // Mode 'transfer': we want to favor account_money/bank_transfer
-        // If we exclude too much, MP might return 400 because no methods are left.
-        // We exclude physical tickets/ATMs primarily.
-        excluded_payment_types: [
-          { id: 'ticket' },
-          { id: 'atm' }
-        ]
-      };
-
-  const prefPayload = {
-    items: [
-      {
-        title,
-        quantity: 1,
-        unit_price: unitPrice,
-        currency_id: 'ARS'
-      }
-    ],
-    metadata: {
-      reservationId: reservation.id
-    },
-    external_reference: reservation.id,
-    payment_methods: paymentMethodsByMode,
-    back_urls: {
-      success: successUrl,
-      pending: pendingUrl,
-      failure: failureUrl
-    }
-  };
-
   try {
+    if (!env.mpAccessToken) return res.status(503).json({ error: 'MP_NOT_CONFIGURED' });
+
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: req.body.reservationId },
+      include: { court: true, club: true }
+    });
+    if (!reservation) return res.status(404).json({ error: 'RESERVATION_NOT_FOUND' });
+
+    const title = `${reservation.club?.name || 'Club'} - ${reservation.court?.name || 'Cancha'}`;
+    const unitPrice = Number(reservation.amount || 0);
+    const successUrl = `${env.appBaseUrl}/confirmacion/${reservation.id}?payment=success`;
+    const pendingUrl = `${env.appBaseUrl}/confirmacion/${reservation.id}?payment=pending`;
+    const failureUrl = `${env.appBaseUrl}/confirmacion/${reservation.id}?payment=failure`;
+
+    const paymentMethodsByMode =
+      req.body.mode === 'card'
+        ? {
+          excluded_payment_types: [
+            { id: 'ticket' },
+            { id: 'atm' },
+            { id: 'bank_transfer' }
+          ]
+        }
+        : {
+          // Mode 'transfer': we want to favor account_money/bank_transfer
+          // If we exclude too much, MP might return 400 because no methods are left.
+          // We exclude physical tickets/ATMs primarily.
+          excluded_payment_types: [
+            { id: 'ticket' },
+            { id: 'atm' }
+          ]
+        };
+
+    const prefPayload = {
+      items: [
+        {
+          title,
+          quantity: 1,
+          unit_price: unitPrice,
+          currency_id: 'ARS'
+        }
+      ],
+      metadata: {
+        reservationId: reservation.id
+      },
+      external_reference: reservation.id,
+      payment_methods: paymentMethodsByMode,
+      back_urls: {
+        success: successUrl,
+        pending: pendingUrl,
+        failure: failureUrl
+      }
+    };
+
     const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -504,9 +504,11 @@ router.post('/payments/mercadopago/preference', validate(mpPreferenceSchema), as
       appDeepLink: `mercadopago://checkout?pref_id=${pref.id}`
     });
   } catch (error) {
-    return res.status(502).json({
-      error: 'MP_PREFERENCE_ERROR',
-      detail: error?.message || 'NETWORK_OR_PROVIDER_ERROR'
+    console.error(`[PREFERENCE_CRITICAL_ERROR] ${error.message}`);
+    return res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: 'Could not create Mercado Pago preference.',
+      detail: error.message
     });
   }
 });
