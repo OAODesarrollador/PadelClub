@@ -436,10 +436,10 @@ router.post('/payments/mercadopago/preference', validate(mpPreferenceSchema), as
         ]
       }
       : {
+        // Mode 'transfer': we want to favor account_money/bank_transfer
+        // If we exclude too much, MP might return 400 because no methods are left.
+        // We exclude physical tickets/ATMs primarily.
         excluded_payment_types: [
-          { id: 'credit_card' },
-          { id: 'debit_card' },
-          { id: 'prepaid_card' },
           { id: 'ticket' },
           { id: 'atm' }
         ]
@@ -454,6 +454,9 @@ router.post('/payments/mercadopago/preference', validate(mpPreferenceSchema), as
         currency_id: 'ARS'
       }
     ],
+    metadata: {
+      reservationId: reservation.id
+    },
     external_reference: reservation.id,
     payment_methods: paymentMethodsByMode,
     back_urls: {
@@ -475,6 +478,7 @@ router.post('/payments/mercadopago/preference', validate(mpPreferenceSchema), as
 
     if (!mpRes.ok) {
       const detail = await mpRes.text();
+      console.error(`[MP_PREFERENCE_ERROR] Status: ${mpRes.status}. Detail: ${detail}`);
       return res.status(502).json({ error: 'MP_PREFERENCE_ERROR', detail });
     }
 

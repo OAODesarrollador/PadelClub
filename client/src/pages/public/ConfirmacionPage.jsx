@@ -168,20 +168,21 @@ export default function ConfirmacionPage() {
         mode: 'transfer'
       });
       if (!pref?.preferenceId || !pref?.mpPublicKey) {
-        setPayMsg('No se pudo inicializar transferencia integrada con Mercado Pago.');
+        setPayMsg('Respuesta del servidor inválida: No se recibió ID de preferencia o Llave Pública.');
         return;
       }
       setMpPublicKey(pref.mpPublicKey);
       setTransferPreferenceId(pref.preferenceId);
       setShowMpBrick(true);
     } catch (error) {
+      console.error('[MP_TRANSFER_INIT_ERROR]', error);
       if (error?.code === 'MP_NOT_CONFIGURED') {
         setPayMsg('Mercado Pago no está configurado. Cargá MP_PUBLIC_KEY y MP_ACCESS_TOKEN en el servidor.');
       } else if (error?.code === 'MP_PREFERENCE_ERROR') {
         const detail = String(error?.detail || '');
-        setPayMsg(detail ? `Mercado Pago rechazó la solicitud: ${detail.slice(0, 180)}` : 'No se pudo iniciar transferencia con Mercado Pago.');
+        setPayMsg(detail ? `Error de Mercado Pago (Preferencia): ${detail.slice(0, 150)}` : 'No se pudo iniciar la transferencia (Error de Preferencia).');
       } else {
-        setPayMsg('No se pudo iniciar transferencia con Mercado Pago.');
+        setPayMsg('Error al conectar con el servidor para iniciar la transferencia.');
       }
     } finally {
       setPayLoading(LOADING.NONE);
@@ -285,8 +286,9 @@ export default function ConfirmacionPage() {
             }
           }
         });
-      } catch {
-        setPayMsg('No se pudo inicializar Mercado Pago. Revisá conexión, bloqueadores y credenciales.');
+      } catch (error) {
+        console.error('[MP_BRICK_MOUNT_ERROR]', error);
+        setPayMsg('No se pudo inicializar la interfaz de pago de Mercado Pago. Revisá conexión y bloqueadores.');
         setPayLoading(LOADING.NONE);
       }
     }
