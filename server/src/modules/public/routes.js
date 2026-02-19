@@ -112,9 +112,8 @@ router.get('/debug-db', async (req, res) => {
       hasTursoUrl: Boolean(process.env.TURSO_DATABASE_URL),
       hasTursoToken: Boolean(process.env.TURSO_AUTH_TOKEN),
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
-      tursoUrlHead: String(process.env.TURSO_DATABASE_URL || '').substring(0, 20),
-      databaseUrlVal: String(process.env.DATABASE_URL || ''),
-      rawUrlVal: String(rawUrl || '')
+      tursoUrlHead: String(process.env.TURSO_DATABASE_URL || '').substring(0, 25),
+      databaseUrlVal: String(process.env.DATABASE_URL || '')
     },
     cwd: process.cwd(),
     nodeVersion: process.version
@@ -126,7 +125,7 @@ router.get('/debug-db', async (req, res) => {
     await rawLibsql.execute('SELECT 1 as test');
     diagnostic.rawLibsqlOk = true;
 
-    // Test 2: Prisma Query (likely to fail if URL is "undefined")
+    // Test 2: Prisma Query
     diagnostic.step = 'prisma_global_query';
     const clubCount = await prisma.club.count();
     diagnostic.prismaOk = true;
@@ -137,11 +136,13 @@ router.get('/debug-db', async (req, res) => {
       diagnostic
     });
   } catch (err) {
-    return res.status(500).json({
+    return res.json({
+      ok: false,
       error: 'DIAGNOSTIC_FAILED',
       message: err.message,
       step: diagnostic.step,
-      diagnostic
+      diagnostic,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 });
