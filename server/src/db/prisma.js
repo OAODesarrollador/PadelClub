@@ -9,21 +9,10 @@ function getStrictEnv(key) {
   return v.trim();
 }
 
-const tursoUrl = getStrictEnv('TURSO_DATABASE_URL');
-const tursoToken = getStrictEnv('TURSO_AUTH_TOKEN');
-const dbUrl = getStrictEnv('DATABASE_URL');
-const dbToken = getStrictEnv('DATABASE_AUTH_TOKEN');
-
-const url = tursoUrl || dbUrl;
-const token = tursoToken || dbToken;
+const url = getStrictEnv('TURSO_DATABASE_URL') || getStrictEnv('DATABASE_URL');
+const token = getStrictEnv('TURSO_AUTH_TOKEN') || getStrictEnv('DATABASE_AUTH_TOKEN');
 
 const isLibsql = !!url && (url.startsWith('libsql') || url.startsWith('http'));
-
-// CRITICAL: Ensure Prisma's engine always sees a valid SQLite URL
-// regardless of whether we use the adapter or not.
-if (!process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('libsql')) {
-  process.env.DATABASE_URL = 'file:./dev.db';
-}
 
 let prismaInstance;
 
