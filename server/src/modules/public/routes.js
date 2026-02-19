@@ -115,7 +115,9 @@ router.get('/debug-db', async (req, res) => {
       tursoUrlHead: String(process.env.TURSO_DATABASE_URL || '').substring(0, 20),
       databaseUrlVal: String(process.env.DATABASE_URL || ''),
       rawUrlVal: String(rawUrl || '')
-    }
+    },
+    cwd: process.cwd(),
+    nodeVersion: process.version
   };
 
   try {

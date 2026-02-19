@@ -3,12 +3,14 @@ import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import '../config/env.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const prismaDir = path.resolve(__dirname, '../../prisma');
 const defaultLocalDbPath = path.resolve(prismaDir, 'dev.db');
 const localDbUrl = `file:${defaultLocalDbPath}`;
+const localDbExists = fs.existsSync(defaultLocalDbPath);
 
 const rawUrl = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '').trim();
 const rawToken = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
@@ -24,14 +26,16 @@ if (libSqlUrl.startsWith('file:')) {
 }
 const libSqlToken = (rawToken && rawToken !== 'undefined' && rawToken !== 'null') ? rawToken : undefined;
 
-// 2. Resolve DUMMY URL for Prisma engine validation (must be same as above or engine might get confused)
-const engineUrl = libSqlUrl;
+// 2. Resolve DUMMY URL for Prisma engine validation (binary engine MUST see a file: URL for sqlite provider)
+// DO NOT set this to libSqlUrl if it's remote (libsql:// or https://), as it will trigger URL_INVALID
+const engineUrl = localDbUrl;
 
 // 3. Force environment variable for the engine
 process.env.DATABASE_URL = engineUrl;
 
 console.log(`[DB_INIT] Engine URL: ${engineUrl}`);
-console.log(`[DB_INIT] Adapter URL: ${libSqlUrl.substring(0, 20)}...`);
+console.log(`[DB_INIT] Local DB Exists: ${localDbExists}`);
+console.log(`[DB_INIT] Adapter URL: ${libSqlUrl.substring(0, 30)}...`);
 console.log(`[DB_INIT] Using LibSQL Adapter: ${libSqlUrl.startsWith('libsql') || libSqlUrl.startsWith('http')}`);
 
 // 4. Create LibSQL client
@@ -47,7 +51,7 @@ export const prisma = new PrismaClient({
   adapter: useLibsql ? new PrismaLibSQL(rawLibsql) : null,
   datasources: {
     db: {
-      url: engineUrl // Categorical fix: satisfy engine with hardcoded valid file URL
+      url: engineUrl
     }
   }
 });
