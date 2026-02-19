@@ -6,23 +6,21 @@ import '../config/env.js';
 const rawUrl = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '').trim();
 const token = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
 
-// CRITICAL: Prisma internal validation often requires DATABASE_URL in the process environment 
-// even when using a driver adapter. We set it early to satisfy this.
-if (rawUrl) {
-  process.env.DATABASE_URL = rawUrl;
-} else {
-  // Fallback to local dev db if nothing is set, to at least prevent crash on undefined
-  process.env.DATABASE_URL = 'file:./dev.db';
-}
+// Use a stable local variable for the URL to avoid issues with process.env mutation in some environments
+const finalUrl = rawUrl || 'file:./dev.db';
+
+// CRITICAL: Prisma internal validation might still need DATABASE_URL in process.env if not using adapter
+// but here we ARE using an adapter. However, we set it just in case some part of the engine checks it.
+process.env.DATABASE_URL = finalUrl;
 
 // Direct LibSQL client for "Raw" queries as fallback
 export const rawLibsql = createClient({
-  url: process.env.DATABASE_URL,
+  url: finalUrl,
   authToken: token || undefined
 });
 
 // Prisma setup
-const useLibsql = process.env.DATABASE_URL.startsWith('libsql') || process.env.DATABASE_URL.startsWith('http');
+const useLibsql = finalUrl.startsWith('libsql') || finalUrl.startsWith('http');
 
 export const prisma = useLibsql
   ? new PrismaClient({ adapter: new PrismaLibSQL(rawLibsql) })

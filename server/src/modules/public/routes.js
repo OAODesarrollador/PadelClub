@@ -109,9 +109,11 @@ router.get('/debug-db', async (req, res) => {
   const diagnostic = {
     step: 'start',
     env: {
-      allKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('TURSO')),
-      tursoUrl: (process.env.TURSO_DATABASE_URL || '').substring(0, 15),
-      dbUrl: (process.env.DATABASE_URL || '').substring(0, 15),
+      hasTursoUrl: Boolean(process.env.TURSO_DATABASE_URL),
+      hasTursoToken: Boolean(process.env.TURSO_AUTH_TOKEN),
+      hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+      tursoUrlHead: (process.env.TURSO_DATABASE_URL || '').substring(0, 15),
+      dbUrlHead: (process.env.DATABASE_URL || '').substring(0, 15),
     }
   };
 

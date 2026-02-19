@@ -178,11 +178,12 @@ export default function ConfirmacionPage() {
       console.error('[MP_TRANSFER_INIT_ERROR]', error);
       if (error?.code === 'MP_NOT_CONFIGURED') {
         setPayMsg('Mercado Pago no está configurado. Cargá MP_PUBLIC_KEY y MP_ACCESS_TOKEN en el servidor.');
-      } else if (error?.code === 'MP_PREFERENCE_ERROR') {
+      } else if (error?.code === 'MP_PREFERENCE_ERROR' || error?.error === 'INTERNAL_ERROR') {
         const detail = String(error?.detail || '');
-        setPayMsg(detail ? `Error de Mercado Pago (Preferencia): ${detail.slice(0, 150)}` : 'No se pudo iniciar la transferencia (Error de Preferencia).');
+        setPayMsg(detail ? `Error del servidor: ${detail.slice(0, 150)}` : 'No se pudo iniciar la transferencia (Error de Preferencia).');
       } else {
-        setPayMsg('Error al conectar con el servidor para iniciar la transferencia.');
+        const detail = String(error?.detail || error?.message || '');
+        setPayMsg(detail ? `Error: ${detail.slice(0, 150)}` : 'Error al conectar con el servidor para iniciar la transferencia.');
       }
     } finally {
       setPayLoading(LOADING.NONE);
