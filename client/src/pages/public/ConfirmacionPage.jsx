@@ -50,6 +50,7 @@ export default function ConfirmacionPage() {
   const { id } = useParams();
   const location = useLocation();
   const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
   const [payMsg, setPayMsg] = useState('');
   const [payLoading, setPayLoading] = useState(LOADING.NONE);
   const [showMpBrick, setShowMpBrick] = useState(false);
@@ -62,7 +63,13 @@ export default function ConfirmacionPage() {
   const mpBrickRef = useRef(null);
 
   useEffect(() => {
-    apiGet(`/public/reservations/${id}/summary`).then(setData).catch(console.error);
+    setError(null);
+    apiGet(`/public/reservations/${id}/summary`)
+      .then(setData)
+      .catch((err) => {
+        console.error(err);
+        setError('No se pudo cargar el resumen de la reserva. Por favor, intentá recargar la página.');
+      });
   }, [id]);
 
   useEffect(() => {
@@ -226,17 +233,17 @@ export default function ConfirmacionPage() {
                 setPayLoading(LOADING.SUBMIT);
                 setPayMsg('');
                 try {
-                const result = await apiPost('/public/payments/mercadopago/card-pay', {
-                  reservationId: id,
-                  ...formData
-                });
-                setPayMsg(formatMpStatus(result?.mpPayment));
-                if (result?.mpPayment?.status === 'approved') {
-                  setPaymentCompleted(true);
-                }
-              } catch (error) {
-                const detail = String(error?.detail || '');
-                setPayMsg(detail ? `Mercado Pago rechazó la solicitud: ${detail.slice(0, 180)}` : 'No se pudo procesar el pago con tarjeta.');
+                  const result = await apiPost('/public/payments/mercadopago/card-pay', {
+                    reservationId: id,
+                    ...formData
+                  });
+                  setPayMsg(formatMpStatus(result?.mpPayment));
+                  if (result?.mpPayment?.status === 'approved') {
+                    setPaymentCompleted(true);
+                  }
+                } catch (error) {
+                  const detail = String(error?.detail || '');
+                  setPayMsg(detail ? `Mercado Pago rechazó la solicitud: ${detail.slice(0, 180)}` : 'No se pudo procesar el pago con tarjeta.');
                 } finally {
                   setPayLoading(LOADING.NONE);
                 }
@@ -393,7 +400,18 @@ export default function ConfirmacionPage() {
         <section className="w-full max-w-6xl mx-auto my-auto">
           <div className="card p-4 md:p-5">
             <h2 className="text-2xl font-semibold">Reserva confirmada</h2>
-            {!data && <p className="mt-3 text-sm">Cargando...</p>}
+            {!data && !error && <p className="mt-3 text-sm">Cargando...</p>}
+            {error && (
+              <div className="mt-4 p-4 rounded-lg bg-red-50 border border-red-200">
+                <p className="text-red-700 text-sm font-medium">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="btn-secondary mt-3 text-xs"
+                >
+                  Recargar página
+                </button>
+              </div>
+            )}
             {data && (
               <div className="mt-4 grid grid-cols-1 gap-4 md:gap-5">
                 <div className="grid gap-1 text-sm leading-5">

@@ -291,41 +291,59 @@ router.post('/reservations/confirm', validate(confirmSchema), async (req, res) =
 });
 
 router.get('/reservations/:id/summary', async (req, res) => {
-  let reservation;
   try {
-    reservation = await prisma.reservation.findUnique({
-      where: { id: req.params.id },
-      include: { club: true, court: true }
-    });
-  } catch (err) {
-    console.warn(`[FALLBACK] Prisma summary failed: ${err.message}. Using raw SQL.`);
-    const rs = await rawLibsql.execute({
-      sql: 'SELECT * FROM Reservation WHERE id = ? LIMIT 1',
-      args: [req.params.id]
-    });
-    reservation = rs.rows[0];
-    if (reservation) {
-      const [rsClub, rsCourt] = await Promise.all([
-        rawLibsql.execute({ sql: 'SELECT * FROM Club WHERE id = ?', args: [reservation.clubId] }),
-        rawLibsql.execute({ sql: 'SELECT * FROM Court WHERE id = ?', args: [reservation.courtId] })
-      ]);
-      reservation.club = rsClub.rows[0];
-      reservation.court = rsCourt.rows[0];
-      // Convert dates
-      reservation.startAt = new Date(reservation.startAt);
+    let reservation;
+    try {
+      reservation = await prisma.reservation.findUnique({
+        where: { id: req.params.id },
+        include: { club: true, court: true }
+      });
+    } catch (err) {
+      console.warn(`[FALLBACK] Prisma summary failed: ${err.message}. Using raw SQL.`);
+      const rs = await rawLibsql.execute({
+        sql: 'SELECT * FROM Reservation WHERE id = ? LIMIT 1',
+        args: [req.params.id]
+      });
+      reservation = rs.rows[0];
+      if (reservation) {
+        const [rsClub, rsCourt] = await Promise.all([
+          rawLibsql.execute({ sql: 'SELECT * FROM Club WHERE id = ?', args: [reservation.clubId] }),
+          rawLibsql.execute({ sql: 'SELECT * FROM Court WHERE id = ?', args: [reservation.courtId] })
+        ]);
+        reservation.club = rsClub.rows[0];
+        reservation.court = rsCourt.rows[0];
+        // Convert dates
+        reservation.startAt = new Date(reservation.startAt);
+      }
     }
+
+    if (!reservation) return res.status(404).json({ error: 'NOT_FOUND' });
+
+    // Defensive check for club and court
+    if (!reservation.club || !reservation.court) {
+      console.error(`[CRITICAL] Reservation ${reservation.id} is missing club or court reference.`);
+      return res.status(500).json({ error: 'DATA_INCONSISTENCY', message: 'Reservation is missing club or court data.' });
+    }
+
+    const customerText = `Reserva confirmada en ${reservation.club.name || 'Club'}. ${reservation.startAt.toLocaleString()} - ${reservation.court.name || 'Cancha'}.`;
+    const clubText = `Nueva reserva ${reservation.id}. ${reservation.customerName} ${reservation.customerWhatsapp}.`;
+    const waCustomer = buildWhatsAppLink(reservation.customerWhatsapp, customerText);
+    const waClub = reservation.club.whatsapp ? buildWhatsAppLink(reservation.club.whatsapp, clubText) : null;
+
+    // Send summary link asynchronously - DO NOT await so it doesn't block the response
+    messageProvider.send({
+      reservationId: reservation.id,
+      destination: reservation.customerWhatsapp,
+      payload: { type: 'summary_link' }
+    }).catch(err => {
+      console.warn(`[NOTIFICATION_FAIL] Could not send summary link: ${err.message}`);
+    });
+
+    return res.json({ reservation, waCustomer, waClub });
+  } catch (error) {
+    console.error(`[SUMMARY_ERROR] ${error.message}`);
+    return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Could not fetch reservation summary.' });
   }
-
-  if (!reservation) return res.status(404).json({ error: 'NOT_FOUND' });
-
-  const customerText = `Reserva confirmada en ${reservation.club.name}. ${reservation.startAt.toLocaleString()} - ${reservation.court.name}.`;
-  const clubText = `Nueva reserva ${reservation.id}. ${reservation.customerName} ${reservation.customerWhatsapp}.`;
-  const waCustomer = buildWhatsAppLink(reservation.customerWhatsapp, customerText);
-  const waClub = reservation.club.whatsapp ? buildWhatsAppLink(reservation.club.whatsapp, clubText) : null;
-
-  await messageProvider.send({ reservationId: reservation.id, destination: reservation.customerWhatsapp, payload: { type: 'summary_link' } });
-
-  return res.json({ reservation, waCustomer, waClub });
 });
 
 router.get('/manage', publicManageLimiter, validate(manageTokenQuerySchema, 'query'), async (req, res) => {
