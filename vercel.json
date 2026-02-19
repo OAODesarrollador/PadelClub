@@ -1,0 +1,37 @@
+{
+  "buildCommand": "cd client && npm run build",
+  "outputDirectory": "client/dist",
+  "functions": {
+    "api/index.mjs": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/api-docs", "destination": "/api/index" },
+    { "source": "/api-docs/(.*)", "destination": "/api/index" },
+    { "source": "/public/(.*)", "destination": "/api/index" },
+    { "source": "/admin/auth/(.*)", "destination": "/api/index" },
+    { "source": "/admin/agenda", "destination": "/api/index" },
+    { "source": "/admin/clubs", "destination": "/api/index" },
+    { "source": "/admin/clubs/(.*)", "destination": "/api/index" },
+    { "source": "/admin/courts", "destination": "/api/index" },
+    { "source": "/admin/courts/(.*)", "destination": "/api/index" },
+    { "source": "/admin/blocks", "destination": "/api/index" },
+    { "source": "/admin/blocks/(.*)", "destination": "/api/index" },
+    { "source": "/admin/pricing", "destination": "/api/index" },
+    { "source": "/admin/pricing/(.*)", "destination": "/api/index" },
+    { "source": "/admin/reservations", "destination": "/api/index" },
+    { "source": "/admin/reservations/(.*)", "destination": "/api/index" },
+    { "source": "/admin/users", "destination": "/api/index" },
+    { "source": "/admin/users/(.*)", "destination": "/api/index" },
+    { "source": "/admin/backups/create", "destination": "/api/index" },
+    { "source": "/admin/backups/restore", "destination": "/api/index" },
+    { "source": "/admin/backups/list", "destination": "/api/index" },
+    { "source": "/admin/backups/(.*)", "destination": "/api/index" },
+    { "source": "/admin/license/status", "destination": "/api/index" },
+    { "source": "/admin/license/activate", "destination": "/api/index" },
+    { "source": "/admin/license/(.*)", "destination": "/api/index" }
+  ]
+}

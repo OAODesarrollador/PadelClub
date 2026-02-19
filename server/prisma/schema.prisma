@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum StaffRole {
+  SECRETARIO
+  ADMIN
+}
+
+enum ReservationStatus {
+  HOLD
+  CONFIRMED
+  CANCELED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+enum CreatedByKind {
+  PUBLIC
+  STAFF
+}
+
+model Club {
+  id                    String         @id @default(cuid())
+  slug                  String         @unique
+  name                  String
+  address               String?
+  whatsapp              String?
+  mapLink               String?
+  transferAlias         String?
+  transferCvuCbu        String?
+  slotDurationDefault   Int            @default(60)
+  minAdvanceMinutes     Int            @default(60)
+  maxAdvanceDays        Int            @default(30)
+  cancellationPolicyMin Int            @default(120)
+  noShowPolicy          String?
+  holidayJson           String         @default("[]")
+  scheduleJson          String         @default("{}")
+  active                Boolean        @default(true)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  courts                Court[]
+  reservations          Reservation[]
+  blocks                Block[]
+  pricingRules          PricingRule[]
+  licenses              License[]
+}
+
+model Court {
+  id           String        @id @default(cuid())
+  clubId       String
+  name         String
+  active       Boolean       @default(true)
+  basePrice    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  club         Club          @relation(fields: [clubId], references: [id])
+  reservations Reservation[]
+  blocks       Block[]
+
+  @@index([clubId])
+}
+
+model StaffUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  fullName     String
+  role         StaffRole
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  audits       AuditLog[]
+}
+
+model Reservation {
+  id                         String            @id @default(cuid())
+  clubId                      String
+  courtId                     String
+  status                      ReservationStatus @default(HOLD)
+  startAt                     DateTime
+  endAt                       DateTime
+  holdExpiresAt               DateTime?
+  customerName                String
+  customerWhatsapp            String
+  customerEmail               String?
+  note                        String?
+  amount                      Int               @default(0)
+  createdByKind               CreatedByKind     @default(PUBLIC)
+  createdByStaffId            String?
+  manageTokenHash             String
+  manageTokenLastRotatedAt    DateTime          @default(now())
+  canceledAt                  DateTime?
+  canceledReason              String?
+  noShowMarkedAt              DateTime?
+  createdAt                   DateTime          @default(now())
+  updatedAt                   DateTime          @updatedAt
+  club                        Club              @relation(fields: [clubId], references: [id])
+  court                       Court             @relation(fields: [courtId], references: [id])
+  payments                    Payment[]
+  messages                    MessageLog[]
+
+  @@index([clubId, courtId, startAt, endAt])
+  @@index([status])
+}
+
+model Block {
+  id         String   @id @default(cuid())
+  clubId      String
+  courtId     String
+  startAt     DateTime
+  endAt       DateTime
+  reason      String
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  club        Club     @relation(fields: [clubId], references: [id])
+  court       Court    @relation(fields: [courtId], references: [id])
+
+  @@index([clubId, courtId, startAt, endAt])
+}
+
+model PricingRule {
+  id         String   @id @default(cuid())
+  clubId      String
+  courtId     String?
+  dayOfWeek   Int
+  startMinute Int
+  endMinute   Int
+  multiplier  Float    @default(1)
+  fixedPrice  Int?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  club        Club     @relation(fields: [clubId], references: [id])
+
+  @@index([clubId, dayOfWeek, startMinute, endMinute])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  reservationId  String
+  amount         Int
+  method         String
+  status         PaymentStatus @default(PENDING)
+  note           String?
+  registeredById String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  reservation    Reservation   @relation(fields: [reservationId], references: [id])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  actorUserId String?
+  entity      String
+  entityId    String
+  action      String
+  beforeJson  String?
+  afterJson   String?
+  createdAt   DateTime  @default(now())
+  actor       StaffUser? @relation(fields: [actorUserId], references: [id])
+
+  @@index([entity, entityId])
+}
+
+model MessageLog {
+  id            String   @id @default(cuid())
+  reservationId String
+  channel       String
+  destination   String
+  payload       String
+  success       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+}
+
+model License {
+  id               String   @id @default(cuid())
+  clubId           String?
+  machineHash      String
+  licenseKey       String
+  validUntil       DateTime?
+  active           Boolean  @default(true)
+  metadataJson     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  club             Club?    @relation(fields: [clubId], references: [id])
+
+  @@index([machineHash])
+}

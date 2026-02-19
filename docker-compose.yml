@@ -1,0 +1,28 @@
+version: '3.9'
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "4000:4000"
+    env_file:
+      - server/.env
+    volumes:
+      - ./server/prisma:/app/server/prisma
+      - ./backups:/app/server/backups
+      - ./server/logs:/app/server/logs
+      - ./data:/data
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    ports:
+      - "4173:4173"
+    environment:
+      - VITE_API_URL=http://localhost:4000
+    restart: unless-stopped
+    depends_on:
+      - server

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# Build outputs
+client/dist/
+server/dist/
+.vercel/
+
+# Environment files (keep examples)
+.env
+.env.*
+!.env.example
+!server/.env.example
+!client/.env.example
+
+# Local databases and journals (SQLite/Turso local replicas)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+server/prisma/dev.db
+server/prisma/*.db-journal
+
+# Logs
+*.log
+server/logs/
+
+# Runtime/local data and backups
+data/
+backups/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

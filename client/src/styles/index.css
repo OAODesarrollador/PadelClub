@@ -1,0 +1,311 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-main: #eefbf2;
+  --font-sans: 'Poppins', sans-serif;
+  --color-text: #122016;
+  --color-muted-text: #475467;
+  --color-surface: rgba(255, 255, 255, 0.94);
+  --color-surface-soft: rgba(248, 250, 252, 0.95);
+  --color-border-soft: rgba(15, 43, 27, 0.14);
+  --color-primary: #146c3a;
+  --color-primary-hover: #0d4726;
+  --color-primary-text: #ffffff;
+  --color-secondary-bg: #ffffff;
+  --color-secondary-border: #146c3a;
+  --color-secondary-text: #146c3a;
+  --color-danger-bg: #ffffff;
+  --color-danger-border: #b42318;
+  --color-danger-text: #b42318;
+  --btn-radius: 0.5rem;
+  --btn-px: 1rem;
+  --btn-py: 0.5rem;
+  --slot-available-bg: #ffffff;
+  --slot-available-hover: #ecfdf3;
+  --slot-unavailable-bg: #98a2b3;
+  --slot-selected-bg: #2f59df;
+  --landing-panel-height: 50vh;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: radial-gradient(circle at top, #f8fffa 0%, var(--bg-main) 45%, #d9f3e4 100%);
+  min-height: 100vh;
+  color: var(--color-text);
+}
+
+.app-frame {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.app-bg-image {
+  position: absolute;
+  inset: 0;
+  z-index: -30;
+  background-image: url('/assets/padel-bg.svg');
+  background-size: cover;
+  background-position: center;
+}
+
+.app-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -20;
+}
+
+.app-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  background: var(--tone-overlay, rgba(0, 0, 0, 0.35));
+}
+
+.app-logo-bar {
+  position: fixed;
+  top: 0.5rem;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 0 0.75rem;
+}
+
+.app-logo-track {
+  display: flex;
+  justify-content: flex-start;
+  width: min(1220px, 100%);
+  margin: 0 auto;
+  border-radius: 0.9rem;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 0.35rem 0.6rem;
+}
+
+.app-footer-track {
+  width: min(1220px, 100%);
+  margin: 0 auto;
+  border-radius: 0.9rem;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.app-footer-wrap {
+  padding: 0 0.75rem;
+}
+
+.app-logo-track--nav {
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app-main-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-logo-bar--panel-x {
+  padding: 0 0.75rem;
+}
+
+.app-logo-bar--panel-x .app-logo-track {
+  width: min(1220px, 100%);
+}
+
+.app-logo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  padding: 0.15rem 0.25rem;
+}
+
+.app-logo-img {
+  height: 5.2rem;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45)) saturate(1.25) contrast(1.12);
+}
+
+.app-logo-text-wrap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.app-logo-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fff9;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.app-logo-subtitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #dff7e7;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.42);
+}
+
+@media (max-width: 640px) {
+  .app-logo-bar {
+    top: 0.5rem;
+    padding: 0 0.5rem;
+  }
+
+  .app-logo-link {
+    padding: 0.1rem 0.2rem;
+  }
+
+  .app-logo-img {
+    height: 4rem;
+  }
+
+  .app-logo-title {
+    font-size: 1rem;
+  }
+
+  .app-logo-subtitle {
+    font-size: 0.7rem;
+  }
+
+  .app-logo-bar--panel-x {
+    padding: 0 0.5rem;
+  }
+
+  .app-footer-wrap {
+    padding: 0 0.5rem;
+  }
+
+  .app-main-nav {
+    gap: 0.3rem;
+  }
+
+  .app-main-nav .btn-primary,
+  .app-main-nav .btn-secondary {
+    padding: 0.3rem 0.55rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-logo-bar--panel-x {
+    padding: 0 1.5rem;
+  }
+
+  .app-footer-wrap {
+    padding: 0 1.5rem;
+  }
+}
+
+.tone-default {
+  --tone-overlay: linear-gradient(180deg, rgba(10, 30, 20, 0.38), rgba(10, 30, 20, 0.46));
+}
+
+.tone-public {
+  --tone-overlay: linear-gradient(180deg, rgba(8, 30, 21, 0.3), rgba(8, 30, 21, 0.4));
+}
+
+.tone-reserve {
+  --tone-overlay: linear-gradient(180deg, rgba(5, 40, 45, 0.34), rgba(5, 40, 45, 0.44));
+}
+
+.tone-confirm {
+  --tone-overlay: linear-gradient(180deg, rgba(18, 45, 24, 0.33), rgba(18, 45, 24, 0.45));
+}
+
+.tone-manage {
+  --tone-overlay: linear-gradient(180deg, rgba(38, 28, 10, 0.34), rgba(38, 28, 10, 0.45));
+}
+
+.tone-admin {
+  --tone-overlay: linear-gradient(180deg, rgba(22, 28, 40, 0.36), rgba(22, 28, 40, 0.5));
+}
+
+.card {
+  @apply bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6;
+}
+
+.panel-shell {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 1rem;
+  box-shadow: 0 20px 40px rgba(12, 22, 18, 0.16);
+}
+
+.panel-topbar {
+  background: var(--color-surface-soft);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.muted-text {
+  color: var(--color-muted-text);
+}
+
+.btn-primary {
+  @apply transition;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-radius: var(--btn-radius);
+  padding: var(--btn-py) var(--btn-px);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  @apply transition border;
+  background: var(--color-secondary-bg);
+  color: var(--color-secondary-text);
+  border-color: var(--color-secondary-border);
+  border-radius: var(--btn-radius);
+  padding: var(--btn-py) var(--btn-px);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.btn-danger {
+  @apply transition border;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-color: var(--color-danger-border);
+  border-radius: var(--btn-radius);
+  padding: var(--btn-py) var(--btn-px);
+}
+
+.btn-danger:hover {
+  background: rgba(180, 35, 24, 0.08);
+}
+
+.btn-link {
+  @apply underline;
+  color: var(--color-primary);
+}
+
+.btn-icon {
+  @apply transition border;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--color-secondary-bg);
+  color: var(--color-secondary-text);
+  border-color: var(--color-secondary-border);
+}

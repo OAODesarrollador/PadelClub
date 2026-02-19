@@ -1,0 +1,5 @@
+Colocar aqui el video local de fondo:
+- Nombre esperado: padel-match.mp4
+- Ruta: client/public/assets/padel-match.mp4
+
+Si no existe el archivo, la landing usa el poster /assets/padel-bg.svg como fallback.
