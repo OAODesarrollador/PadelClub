@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd client && npm run build",
-  "outputDirectory": "client/dist",
+  "buildCommand": "if [ -d client ]; then cd client && npm run build && cd .. && rm -rf dist && mv client/dist dist; else npm run build; fi",
+  "outputDirectory": "dist",
   "functions": {
     "api/index.mjs": {
       "runtime": "nodejs20.x",
