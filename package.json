@@ -11,8 +11,13 @@
     "test": "npm run test -w server",
     "migrate:turso": "node scripts/migrate-sqlite-to-turso.mjs"
   },
-  "devDependencies": {
+  "dependencies": {
     "@libsql/client": "^0.17.0",
-    "concurrently": "^9.2.1"
+    "@prisma/adapter-libsql": "^6.3.1",
+    "@prisma/client": "^6.3.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prisma": "^6.3.1"
   }
 }
