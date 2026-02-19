@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { PrismaClient, StaffRole, ReservationStatus, CreatedByKind } from '@prisma/client';
-import { PrismaLibSQL } from '@prisma/adapter-libsql';
-import { createClient } from '@libsql/client';
-import { prisma } from '../../db/prisma.js';
+import { prisma, rawLibsql } from '../../db/prisma.js';
 import { validate } from '../../middleware/validate.js';
 import { publicHoldLimiter, publicManageLimiter } from '../../middleware/rateLimit.js';
 import {
