@@ -42,19 +42,19 @@ const mpAtMode = detectMpCredentialMode(env.mpAccessToken);
 const bothSet = mpPkMode !== 'missing' && mpAtMode !== 'missing';
 const oneMissing = (mpPkMode === 'missing') !== (mpAtMode === 'missing');
 if (oneMissing) {
-  throw new Error(
-    `Mercado Pago config invalid: both MP_PUBLIC_KEY and MP_ACCESS_TOKEN must be set together. Detected mpPublicKey=${mpPkMode}, mpAccessToken=${mpAtMode}.`
+  console.warn(
+    `[CONFIG_WARN] Mercado Pago config incomplete: both MP_PUBLIC_KEY and MP_ACCESS_TOKEN must be set together. Detected mpPublicKey=${mpPkMode}, mpAccessToken=${mpAtMode}. Payments will fail.`
   );
 }
 
 if (bothSet && (mpPkMode === 'unknown' || mpAtMode === 'unknown')) {
-  throw new Error(
-    `Mercado Pago config invalid: unsupported credential format. Expected TEST-* or APP_USR-*. Detected mpPublicKey=${mpPkMode}, mpAccessToken=${mpAtMode}.`
+  console.warn(
+    `[CONFIG_WARN] Mercado Pago config invalid: unsupported credential format. Expected TEST-* or APP_USR-*. Detected mpPublicKey=${mpPkMode}, mpAccessToken=${mpAtMode}.`
   );
 }
 
 if (bothSet && mpPkMode !== mpAtMode) {
-  throw new Error(
-    `Mercado Pago config invalid: mixed environments. MP_PUBLIC_KEY is ${mpPkMode} and MP_ACCESS_TOKEN is ${mpAtMode}. Use both TEST or both LIVE.`
+  console.warn(
+    `[CONFIG_WARN] Mercado Pago config invalid: mixed environments. MP_PUBLIC_KEY is ${mpPkMode} and MP_ACCESS_TOKEN is ${mpAtMode}. Use both TEST or both LIVE.`
   );
 }
