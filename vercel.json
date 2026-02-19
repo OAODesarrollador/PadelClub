@@ -103,8 +103,8 @@
       "destination": "/api/index"
     },
     {
-      "source": "/((?!api|public|health|api-docs|admin).*)",
-      "destination": "/"
+      "source": "/((?!api|public|health|api-docs|admin|assets|favicon).*)",
+      "destination": "/index.html"
     }
   ]
 }

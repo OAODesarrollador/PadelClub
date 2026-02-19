@@ -7,15 +7,17 @@ const rawUrl = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || ''
 const token = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
 
 // Use a stable local variable for the URL. Defensively check for "undefined" string.
-const finalUrl = (rawUrl && rawUrl !== 'undefined') ? rawUrl : 'file:./dev.db';
+const finalUrl = (rawUrl && rawUrl !== 'undefined' && rawUrl !== 'null') ? rawUrl : 'file:./dev.db';
 
 // Ensure the environment variable is EXACTLY what we want for Prisma's internal validation
 process.env.DATABASE_URL = finalUrl;
 
+console.log(`[DB_INIT] Using URL: ${finalUrl.substring(0, 20)}...`);
+
 // Direct LibSQL client for "Raw" queries as fallback
 export const rawLibsql = createClient({
   url: finalUrl,
-  authToken: token && token !== 'undefined' ? token : undefined
+  authToken: (token && token !== 'undefined' && token !== 'null') ? token : undefined
 });
 
 // Prisma setup
