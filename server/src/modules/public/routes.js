@@ -71,9 +71,30 @@ async function resolveClub(clubRef) {
 }
 
 router.get('/club/:slug', async (req, res) => {
-  const club = await prisma.club.findUnique({ where: { slug: req.params.slug }, include: { courts: true } });
-  if (!club) return res.status(404).json({ error: 'NOT_FOUND' });
-  return res.json(club);
+  try {
+    const club = await prisma.club.findUnique({ where: { slug: req.params.slug }, include: { courts: true } });
+    if (!club) return res.status(404).json({ error: 'NOT_FOUND' });
+    return res.json(club);
+  } catch (err) {
+    console.warn(`[FALLBACK] Prisma failed for club ${req.params.slug}: ${err.message}. Using raw SQL.`);
+    try {
+      const rsClub = await rawLibsql.execute({
+        sql: 'SELECT * FROM Club WHERE slug = ? LIMIT 1',
+        args: [req.params.slug]
+      });
+      const club = rsClub.rows[0];
+      if (!club) return res.status(404).json({ error: 'NOT_FOUND' });
+
+      const rsCourts = await rawLibsql.execute({
+        sql: 'SELECT * FROM Court WHERE clubId = ?',
+        args: [club.id]
+      });
+      club.courts = rsCourts.rows;
+      return res.json(club);
+    } catch (rawErr) {
+      return res.status(500).json({ error: 'DB_ERROR', message: rawErr.message });
+    }
+  }
 });
 
 // Extra imports were here, now moved to top
@@ -89,33 +110,15 @@ router.get('/debug-db', async (req, res) => {
   };
 
   try {
-    const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
-    const token = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN;
+    // Test 1: Direct LibSQL Client (using centralized export)
+    diagnostic.step = 'raw_libsql_test';
+    await rawLibsql.execute('SELECT 1 as test');
+    diagnostic.rawLibsqlOk = true;
 
-    if (!url || url === 'undefined') {
-      throw new Error(`Critical: Database URL is literally "${url}"`);
-    }
-
-    // Test 1: Direct LibSQL Client
-    diagnostic.step = 'libsql_direct_init';
-    const client = createClient({ url, authToken: token || undefined });
-    diagnostic.step = 'libsql_direct_query';
-    await client.execute('SELECT 1 as test');
-    diagnostic.libsqlOk = true;
-
-    // Test 2: Manual Prisma Re-init
-    diagnostic.step = 'prisma_manual_reinit';
-    const prismaManual = new PrismaClient({
-      adapter: new PrismaLibSQL(client)
-    });
-    diagnostic.step = 'prisma_manual_query';
-    const countManual = await prismaManual.club.count();
-    diagnostic.prismaManualOk = true;
-
-    // Test 3: Global Prisma
+    // Test 2: Prisma Query (likely to fail if URL is "undefined")
     diagnostic.step = 'prisma_global_query';
     const clubCount = await prisma.club.count();
-    diagnostic.prismaGlobalOk = true;
+    diagnostic.prismaOk = true;
 
     return res.json({
       ok: true,

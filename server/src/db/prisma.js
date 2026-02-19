@@ -3,29 +3,22 @@ import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 import '../config/env.js';
 
-function getStrictEnv(key) {
-  const v = process.env[key];
-  if (typeof v !== 'string' || v.trim() === '' || v === 'undefined' || v === 'null') return '';
-  return v.trim();
-}
+const url = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '').trim();
+const token = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
 
-const url = getStrictEnv('TURSO_DATABASE_URL') || getStrictEnv('DATABASE_URL');
-const token = getStrictEnv('TURSO_AUTH_TOKEN') || getStrictEnv('DATABASE_AUTH_TOKEN');
+// CRITICAL: Prevent Prisma engine from seeing potentially invalid/conflicting env vars
+delete process.env.DATABASE_URL;
+delete process.env.DATABASE_AUTH_TOKEN;
 
-const isLibsql = !!url && (url.startsWith('libsql') || url.startsWith('http'));
+// Direct LibSQL client for "Raw" queries as fallback
+export const rawLibsql = createClient({
+  url: url,
+  authToken: token || undefined
+});
 
-let prismaInstance;
+// Prisma setup
+const useLibsql = url.startsWith('libsql') || url.startsWith('http');
 
-if (isLibsql) {
-  console.log('[PRISMA_INIT] Using LibSQL adapter');
-  const client = createClient({ url, authToken: token || undefined });
-  prismaInstance = new PrismaClient({
-    adapter: new PrismaLibSQL(client)
-  });
-} else {
-  console.log('[PRISMA_INIT] Using native SQLite');
-  prismaInstance = new PrismaClient();
-}
-
-export const prisma = prismaInstance;
-export const getPrisma = () => prismaInstance;
+export const prisma = useLibsql
+  ? new PrismaClient({ adapter: new PrismaLibSQL(rawLibsql) })
+  : new PrismaClient();
