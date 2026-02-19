@@ -3,8 +3,8 @@ import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 import '../config/env.js';
 
-const databaseUrl = process.env.DATABASE_URL || '';
-const databaseAuthToken = process.env.DATABASE_AUTH_TOKEN || undefined;
+const databaseUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '';
+const databaseAuthToken = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || undefined;
 
 const useLibsql =
   databaseUrl.startsWith('libsql://') ||
