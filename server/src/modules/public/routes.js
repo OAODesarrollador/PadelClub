@@ -72,6 +72,8 @@ router.get('/club/:slug', async (req, res) => {
   return res.json(club);
 });
 
+import { PrismaClient } from '../../prisma/generated/client/index.js';
+import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 
 router.get('/debug-db', async (req, res) => {
@@ -85,8 +87,6 @@ router.get('/debug-db', async (req, res) => {
   };
 
   try {
-    // Test 1: Direct LibSQL Client
-    diagnostic.step = 'libsql_direct_init';
     const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
     const token = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN;
 
@@ -94,15 +94,26 @@ router.get('/debug-db', async (req, res) => {
       throw new Error(`Critical: Database URL is literally "${url}"`);
     }
 
+    // Test 1: Direct LibSQL Client
+    diagnostic.step = 'libsql_direct_init';
     const client = createClient({ url, authToken: token || undefined });
     diagnostic.step = 'libsql_direct_query';
-    const rs = await client.execute('SELECT 1 as test');
+    await client.execute('SELECT 1 as test');
     diagnostic.libsqlOk = true;
 
-    // Test 2: Prisma
-    diagnostic.step = 'prisma_query';
+    // Test 2: Manual Prisma Re-init
+    diagnostic.step = 'prisma_manual_reinit';
+    const prismaManual = new PrismaClient({
+      adapter: new PrismaLibSQL(client)
+    });
+    diagnostic.step = 'prisma_manual_query';
+    const countManual = await prismaManual.club.count();
+    diagnostic.prismaManualOk = true;
+
+    // Test 3: Global Prisma
+    diagnostic.step = 'prisma_global_query';
     const clubCount = await prisma.club.count();
-    diagnostic.prismaOk = true;
+    diagnostic.prismaGlobalOk = true;
 
     return res.json({
       ok: true,

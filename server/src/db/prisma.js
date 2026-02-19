@@ -3,36 +3,49 @@ import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 import '../config/env.js';
 
-const tursoUrl = (process.env.TURSO_DATABASE_URL || '').trim();
-const tursoToken = (process.env.TURSO_AUTH_TOKEN || '').trim();
-const dbUrl = (process.env.DATABASE_URL || '').trim();
-const dbToken = (process.env.DATABASE_AUTH_TOKEN || '').trim();
+let _instance = null;
 
-const url = tursoUrl || dbUrl;
-const token = tursoToken || dbToken;
+function initPrisma() {
+  if (_instance) return _instance;
 
-const isLibsql = !!url && (url.startsWith('libsql') || url.startsWith('http'));
+  console.error('[PRISMA_DEBUG] Starting lazy initialization');
 
-// If using LibSQL, we MUST prevent Prisma's native engine from seeing the invalid URL
-if (isLibsql) {
-  process.env.DATABASE_URL = 'file:./dev.db';
+  const tursoUrl = (process.env.TURSO_DATABASE_URL || '').trim();
+  const dbUrl = (process.env.DATABASE_URL || '').trim();
+  const url = tursoUrl || dbUrl;
+
+  const isLibsql = !!url && (url.startsWith('libsql') || url.startsWith('http'));
+  console.error(`[PRISMA_DEBUG] urlFound=${!!url}, isLibsql=${isLibsql}, urlPrefix=${url.substring(0, 15)}`);
+
+  if (isLibsql) {
+    try {
+      // Protect native engine
+      process.env.DATABASE_URL = 'file:./dev.db';
+
+      const token = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
+      const client = createClient({ url, authToken: token || undefined });
+
+      _instance = new PrismaClient({
+        adapter: new PrismaLibSQL(client)
+      });
+      console.error('[PRISMA_DEBUG] Created with LibSQL adapter');
+    } catch (err) {
+      console.error('[PRISMA_DEBUG] Adapter initialization failed:', err);
+      _instance = new PrismaClient();
+    }
+  } else {
+    console.error('[PRISMA_DEBUG] Falling back to native Prisma');
+    _instance = new PrismaClient();
+  }
+
+  return _instance;
 }
 
-let prismaInstance;
+export const prisma = new Proxy({}, {
+  get: (target, prop) => {
+    if (prop === '$$typeof' || prop === 'then') return undefined;
+    return initPrisma()[prop];
+  }
+});
 
-if (isLibsql) {
-  console.log('[PRISMA_INIT] Initializing with LibSQL Adapter');
-  const libsql = createClient({
-    url: url,
-    authToken: token || undefined
-  });
-  prismaInstance = new PrismaClient({
-    adapter: new PrismaLibSQL(libsql)
-  });
-} else {
-  console.log('[PRISMA_INIT] Initializing with Native SQLite');
-  prismaInstance = new PrismaClient();
-}
-
-export const prisma = prismaInstance;
-export const getPrisma = () => prismaInstance;
+export const getPrisma = initPrisma;
