@@ -142,76 +142,121 @@ router.get('/availability', async (req, res) => {
     return res.status(400).json({ error: 'INVALID_DURATION' });
   }
 
-  const club = await resolveClub(String(clubId));
-  if (!club) {
-    console.log(`Club not found for ID: ${clubId}`);
-    return res.status(404).json({ error: 'CLUB_NOT_FOUND', detail: `Club ${clubId} not found in database` });
-  }
-
-  const activeRanges = getActiveRangesForDate(club.scheduleJson, String(date));
-  const slots = buildDaySlots(String(date), 60);
-
-  const courts = await prisma.court.findMany({ where: { clubId: club.id, active: true }, orderBy: { name: 'asc' } });
-  const pricingRules = await prisma.pricingRule.findMany({ where: { clubId: club.id, active: true } });
-  const dayStart = d;
-  const dayEnd = new Date(d.getTime() + 24 * 60 * 60 * 1000);
-
-  const reservations = await prisma.reservation.findMany({
-    where: {
-      clubId: club.id,
-      OR: [
-        { status: 'CONFIRMED' },
-        { status: 'HOLD', holdExpiresAt: { gt: new Date() } }
-      ],
-      startAt: { lt: dayEnd },
-      endAt: { gt: dayStart }
-    }
-  });
-  const blocks = await prisma.block.findMany({
-    where: {
-      clubId: club.id,
-      startAt: { lt: dayEnd },
-      endAt: { gt: dayStart }
-    }
-  });
-
-  const data = slots.map((slot) => {
-    const start = new Date(slot.startAt);
-    const slotEnd = new Date(start.getTime() + 60 * 60 * 1000);
-    const desiredEnd = new Date(start.getTime() + durationMinutes * 60 * 1000);
-    const isWithinActiveRange = isInsideActiveRanges(activeRanges, start, slotEnd);
-
-    const byCourt = courts.map((court) => {
-      const rConflict = reservations.some((r) => r.courtId === court.id && start < r.endAt && slotEnd > r.startAt);
-      const bConflict = blocks.some((b) => b.courtId === court.id && start < b.endAt && slotEnd > b.startAt);
-      const rStartConflict = reservations.some((r) => r.courtId === court.id && start < r.endAt && desiredEnd > r.startAt);
-      const bStartConflict = blocks.some((b) => b.courtId === court.id && start < b.endAt && desiredEnd > b.startAt);
-      const price = estimatePrice({
-        basePrice: court.basePrice || 0,
-        pricingRules,
-        courtId: court.id,
-        startAt: start,
-        durationMinutes
+  try {
+    // 1. Resolve Club
+    let club;
+    try {
+      club = await resolveClub(String(clubId));
+    } catch (err) {
+      console.warn(`[AVAILABILITY_FALLBACK] resolveClub Prisma failed: ${err.message}`);
+      const rs = await rawLibsql.execute({
+        sql: 'SELECT * FROM Club WHERE (id = ? OR slug = ?) AND active = 1 LIMIT 1',
+        args: [String(clubId), String(clubId)]
       });
-      return {
-        courtId: court.id,
-        courtName: court.name,
-        available: isWithinActiveRange && !(rConflict || bConflict),
-        startAllowed: isWithinActiveRange && !(rStartConflict || bStartConflict),
-        price
-      };
-    });
-    return { startAt: slot.startAt, isWithinActiveRange, courts: byCourt };
-  });
+      club = rs.rows[0];
+    }
 
-  return res.json({
-    clubId: club.id,
-    clubSlug: club.slug,
-    date,
-    durationMinutes,
-    activeRanges,
-    slots: data
-  });
+    if (!club) {
+      return res.status(404).json({ error: 'CLUB_NOT_FOUND' });
+    }
+
+    const activeRanges = getActiveRangesForDate(club.scheduleJson, String(date));
+    const slots = buildDaySlots(String(date), 60);
+    const dayStart = d;
+    const dayEnd = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+
+    // 2. Fetch Courts, PricingRules, Reservations, Blocks
+    let courts, pricingRules, reservations, blocks;
+    try {
+      [courts, pricingRules] = await Promise.all([
+        prisma.court.findMany({ where: { clubId: club.id, active: true }, orderBy: { name: 'asc' } }),
+        prisma.pricingRule.findMany({ where: { clubId: club.id, active: true } })
+      ]);
+      [reservations, blocks] = await Promise.all([
+        prisma.reservation.findMany({
+          where: {
+            clubId: club.id,
+            OR: [
+              { status: 'CONFIRMED' },
+              { status: 'HOLD', holdExpiresAt: { gt: new Date() } }
+            ],
+            startAt: { lt: dayEnd },
+            endAt: { gt: dayStart }
+          }
+        }),
+        prisma.block.findMany({
+          where: {
+            clubId: club.id,
+            startAt: { lt: dayEnd },
+            endAt: { gt: dayStart }
+          }
+        })
+      ]);
+    } catch (err) {
+      console.warn(`[AVAILABILITY_FALLBACK] Full Prisma fetch failed: ${err.message}. Using Raw SQL.`);
+      const [rsCourts, rsPricing, rsRes, rsBlocks] = await Promise.all([
+        rawLibsql.execute({ sql: 'SELECT * FROM Court WHERE clubId = ? AND active = 1 ORDER BY name ASC', args: [club.id] }),
+        rawLibsql.execute({ sql: 'SELECT * FROM PricingRule WHERE clubId = ? AND active = 1', args: [club.id] }),
+        rawLibsql.execute({
+          sql: `SELECT * FROM Reservation 
+                WHERE clubId = ? 
+                AND (status = "CONFIRMED" OR (status = "HOLD" AND holdExpiresAt > ?))
+                AND startAt < ? AND endAt > ?`,
+          args: [club.id, new Date().toISOString(), dayEnd.toISOString(), dayStart.toISOString()]
+        }),
+        rawLibsql.execute({
+          sql: 'SELECT * FROM Block WHERE clubId = ? AND startAt < ? AND endAt > ?',
+          args: [club.id, dayEnd.toISOString(), dayStart.toISOString()]
+        })
+      ]);
+      courts = rsCourts.rows;
+      pricingRules = rsPricing.rows;
+      // Convert date strings back to objects for compatibility with logic below
+      reservations = rsRes.rows.map(r => ({ ...r, startAt: new Date(r.startAt), endAt: new Date(r.endAt) }));
+      blocks = rsBlocks.rows.map(b => ({ ...b, startAt: new Date(b.startAt), endAt: new Date(b.endAt) }));
+    }
+
+    const data = slots.map((slot) => {
+      const start = new Date(slot.startAt);
+      const slotEnd = new Date(start.getTime() + 60 * 60 * 1000);
+      const desiredEnd = new Date(start.getTime() + durationMinutes * 60 * 1000);
+      const isWithinActiveRange = isInsideActiveRanges(activeRanges, start, slotEnd);
+
+      const byCourt = courts.map((court) => {
+        const rConflict = reservations.some((r) => r.courtId === court.id && start < r.endAt && slotEnd > r.startAt);
+        const bConflict = blocks.some((b) => b.courtId === court.id && start < b.endAt && slotEnd > b.startAt);
+        const rStartConflict = reservations.some((r) => r.courtId === court.id && start < r.endAt && desiredEnd > r.startAt);
+        const bStartConflict = blocks.some((b) => b.courtId === court.id && start < b.endAt && desiredEnd > b.startAt);
+        const price = estimatePrice({
+          basePrice: court.basePrice || 0,
+          pricingRules,
+          courtId: court.id,
+          startAt: start,
+          durationMinutes
+        });
+        return {
+          courtId: court.id,
+          courtName: court.name,
+          available: isWithinActiveRange && !(rConflict || bConflict),
+          startAllowed: isWithinActiveRange && !(rStartConflict || bStartConflict),
+          price
+        };
+      });
+      return { startAt: slot.startAt, isWithinActiveRange, courts: byCourt };
+    });
+
+    return res.json({
+      clubId: club.id,
+      clubSlug: club.slug,
+      date,
+      durationMinutes,
+      activeRanges,
+      slots: data
+    });
+  } catch (err) {
+    console.error(`[AVAILABILITY_CRITICAL_FAILURE] ${err.message}`);
+    return res.status(500).json({ error: 'AVAILABILITY_ERROR', message: err.message });
+  }
 });
 
 router.post('/reservations/hold', publicHoldLimiter, validate(holdSchema), async (req, res) => {
