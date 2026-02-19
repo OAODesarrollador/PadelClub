@@ -59,12 +59,21 @@ function throttlePhone(phone) {
 }
 
 async function resolveClub(clubRef) {
-  return prisma.club.findFirst({
-    where: {
-      OR: [{ id: clubRef }, { slug: clubRef }],
-      active: true
-    }
-  });
+  try {
+    return await prisma.club.findFirst({
+      where: {
+        OR: [{ id: clubRef }, { slug: clubRef }],
+        active: true
+      }
+    });
+  } catch (err) {
+    console.warn(`[FALLBACK] resolveClub Prisma failed: ${err.message}. Using raw SQL.`);
+    const rs = await rawLibsql.execute({
+      sql: 'SELECT * FROM Club WHERE (id = ? OR slug = ?) AND active = 1 LIMIT 1',
+      args: [clubRef, clubRef]
+    });
+    return rs.rows[0];
+  }
 }
 
 router.get('/club/:slug', async (req, res) => {
@@ -282,10 +291,31 @@ router.post('/reservations/confirm', validate(confirmSchema), async (req, res) =
 });
 
 router.get('/reservations/:id/summary', async (req, res) => {
-  const reservation = await prisma.reservation.findUnique({
-    where: { id: req.params.id },
-    include: { club: true, court: true }
-  });
+  let reservation;
+  try {
+    reservation = await prisma.reservation.findUnique({
+      where: { id: req.params.id },
+      include: { club: true, court: true }
+    });
+  } catch (err) {
+    console.warn(`[FALLBACK] Prisma summary failed: ${err.message}. Using raw SQL.`);
+    const rs = await rawLibsql.execute({
+      sql: 'SELECT * FROM Reservation WHERE id = ? LIMIT 1',
+      args: [req.params.id]
+    });
+    reservation = rs.rows[0];
+    if (reservation) {
+      const [rsClub, rsCourt] = await Promise.all([
+        rawLibsql.execute({ sql: 'SELECT * FROM Club WHERE id = ?', args: [reservation.clubId] }),
+        rawLibsql.execute({ sql: 'SELECT * FROM Court WHERE id = ?', args: [reservation.courtId] })
+      ]);
+      reservation.club = rsClub.rows[0];
+      reservation.court = rsCourt.rows[0];
+      // Convert dates
+      reservation.startAt = new Date(reservation.startAt);
+    }
+  }
+
   if (!reservation) return res.status(404).json({ error: 'NOT_FOUND' });
 
   const customerText = `Reserva confirmada en ${reservation.club.name}. ${reservation.startAt.toLocaleString()} - ${reservation.court.name}.`;
