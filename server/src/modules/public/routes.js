@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import { PrismaClient } from '../../../prisma/generated/client/index.js';
+import { PrismaLibSQL } from '@prisma/adapter-libsql';
+import { createClient } from '@libsql/client';
 import { prisma } from '../../db/prisma.js';
 import { validate } from '../../middleware/validate.js';
 import { publicHoldLimiter, publicManageLimiter } from '../../middleware/rateLimit.js';
@@ -72,9 +75,7 @@ router.get('/club/:slug', async (req, res) => {
   return res.json(club);
 });
 
-import { PrismaClient } from '../../prisma/generated/client/index.js';
-import { PrismaLibSQL } from '@prisma/adapter-libsql';
-import { createClient } from '@libsql/client';
+// Extra imports were here, now moved to top
 
 router.get('/debug-db', async (req, res) => {
   const diagnostic = {
@@ -104,7 +105,8 @@ router.get('/debug-db', async (req, res) => {
     // Test 2: Manual Prisma Re-init
     diagnostic.step = 'prisma_manual_reinit';
     const prismaManual = new PrismaClient({
-      adapter: new PrismaLibSQL(client)
+      adapter: new PrismaLibSQL(client),
+      datasources: { db: { url: 'file:./dev.db' } }
     });
     diagnostic.step = 'prisma_manual_query';
     const countManual = await prismaManual.club.count();
