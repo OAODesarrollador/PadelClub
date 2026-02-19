@@ -1,6 +1,4 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "client/dist",
   "functions": {
     "api/index.mjs": {
       "runtime": "nodejs20.x",
