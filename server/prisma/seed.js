@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { StaffRole, ReservationStatus, CreatedByKind } from './generated/client/index.js';
+import { StaffRole, ReservationStatus, CreatedByKind } from '@prisma/client';
 import { prisma } from '../src/db/prisma.js';
 import crypto from 'crypto';
 

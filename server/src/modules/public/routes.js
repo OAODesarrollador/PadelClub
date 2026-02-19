@@ -1,6 +1,7 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { PrismaClient } from '../../../prisma/generated/client/index.js';
+import { PrismaClient, StaffRole, ReservationStatus, CreatedByKind } from '@prisma/client';
 import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 import { prisma } from '../../db/prisma.js';
@@ -105,8 +106,7 @@ router.get('/debug-db', async (req, res) => {
     // Test 2: Manual Prisma Re-init
     diagnostic.step = 'prisma_manual_reinit';
     const prismaManual = new PrismaClient({
-      adapter: new PrismaLibSQL(client),
-      datasources: { db: { url: 'file:./dev.db' } }
+      adapter: new PrismaLibSQL(client)
     });
     diagnostic.step = 'prisma_manual_query';
     const countManual = await prismaManual.club.count();
