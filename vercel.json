@@ -101,6 +101,10 @@
     {
       "source": "/admin/license/(.*)",
       "destination": "/api/index"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
