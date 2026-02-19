@@ -54,6 +54,10 @@ export function buildDaySlots(date, intervalMinutes = 60) {
 
 export function isInsideActiveRanges(ranges, startDate, endDate) {
   const startMinute = startDate.getHours() * 60 + startDate.getMinutes();
-  const endMinute = endDate.getHours() * 60 + endDate.getMinutes();
+  const endTotalMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+
+  // If end is midnight of next day, treat as 1440 minutes of current day
+  const endMinute = (endTotalMinutes === 0 && endDate.getTime() > startDate.getTime()) ? 1440 : endTotalMinutes;
+
   return ranges.some((r) => startMinute >= r.startMinute && endMinute <= r.endMinute);
 }

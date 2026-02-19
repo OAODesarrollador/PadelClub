@@ -266,8 +266,12 @@ router.get('/availability', async (req, res) => {
       slots: data
     });
   } catch (err) {
-    console.error(`[AVAILABILITY_CRITICAL_FAILURE] ${err.message}`);
-    return res.status(500).json({ error: 'AVAILABILITY_ERROR', message: err.message });
+    console.error(`[AVAILABILITY_CRITICAL_FAILURE]`, err);
+    return res.status(500).json({
+      error: 'AVAILABILITY_ERROR',
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
