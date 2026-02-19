@@ -11,14 +11,26 @@ const useLibsql =
   databaseUrl.startsWith('http://') ||
   databaseUrl.startsWith('https://');
 
+if (process.env.NODE_ENV === 'production' || useLibsql) {
+  console.log(`Prisma Init: useLibsql=${useLibsql}, urlLength=${databaseUrl.length}, hasToken=${!!databaseAuthToken}`);
+  if (useLibsql && databaseUrl.length < 10) {
+    console.error(`Prisma Init Error: databaseUrl is suspiciously short: "${databaseUrl}"`);
+  }
+}
+
 export const prisma = useLibsql
   ? (() => {
-    const libsql = createClient({
-      url: databaseUrl,
-      authToken: databaseAuthToken
-    });
-    return new PrismaClient({
-      adapter: new PrismaLibSQL(libsql)
-    });
+    try {
+      const libsql = createClient({
+        url: databaseUrl,
+        authToken: databaseAuthToken
+      });
+      return new PrismaClient({
+        adapter: new PrismaLibSQL(libsql)
+      });
+    } catch (e) {
+      console.error('Failed to initialize Prisma with LibSQL adapter:', e);
+      throw e;
+    }
   })()
   : new PrismaClient();

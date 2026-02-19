@@ -74,19 +74,37 @@ router.get('/club/:slug', async (req, res) => {
 
 router.get('/debug-db', async (req, res) => {
   try {
+    const databaseUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '';
+    const databaseAuthToken = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '';
+
     const clubCount = await prisma.club.count();
     const demoClub = await prisma.club.findUnique({ where: { slug: 'club-paddle-demo' } });
+
     return res.json({
       ok: true,
       clubCount,
       demoClubFound: !!demoClub,
       env: {
-        hasUrl: !!process.env.TURSO_DATABASE_URL,
-        hasToken: !!process.env.TURSO_AUTH_TOKEN
+        allKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('TURSO')),
+        tursoUrlPrefix: databaseUrl.substring(0, 12),
+        tursoUrlLength: databaseUrl.length,
+        hasToken: !!databaseAuthToken,
+        tokenPrefix: databaseAuthToken.substring(0, 4)
       }
     });
   } catch (err) {
-    return res.status(500).json({ error: 'DEBUG_DB_FAILED', message: err.message });
+    const databaseUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '';
+    return res.status(500).json({
+      error: 'DEBUG_DB_FAILED',
+      message: err.message,
+      stack: err.stack,
+      envDiagnose: {
+        tursoUrlType: typeof databaseUrl,
+        tursoUrlValue: String(databaseUrl).substring(0, 12),
+        tursoUrlLength: String(databaseUrl).length,
+        allRelevantKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('TURSO'))
+      }
+    });
   }
 });
 
