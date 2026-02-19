@@ -4,29 +4,36 @@ import { createClient } from '@libsql/client';
 import '../config/env.js';
 
 const rawUrl = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '').trim();
-const token = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
+const rawToken = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
 
-// Use a stable local variable for the REAL connection URL.
-const finalUrl = (rawUrl && rawUrl !== 'undefined' && rawUrl !== 'null') ? rawUrl : 'file:./dev.db';
-const finalToken = (token && token !== 'undefined' && token !== 'null') ? token : undefined;
+// 1. Resolve TRUE connection details for the adapter
+const libSqlUrl = (rawUrl && rawUrl !== 'undefined' && rawUrl !== 'null') ? rawUrl : 'file:./dev.db';
+const libSqlToken = (rawToken && rawToken !== 'undefined' && rawToken !== 'null') ? rawToken : undefined;
 
-// CRITICAL FOR PRISMA ADAPTERS ON VERCEL:
-// The Prisma engine (binary) performs validation on DATABASE_URL even when using an adapter.
-// It expects a "file:" URL because provider="sqlite". If it sees "libsql://", it throws URL_INVALID.
-// Fix: Set the env var to a dummy file path, and use the real URL only in the adapter's client.
-process.env.DATABASE_URL = 'file:./dev.db';
+// 2. Resolve DUMMY URL for Prisma engine validation (binary engine MUST see a file: URL for sqlite provider)
+const engineUrl = 'file:./dev.db';
 
-console.log(`[DB_INIT] Using Adapter for Turso: ${finalUrl.startsWith('libsql') || finalUrl.startsWith('http')}. Engine URL satisfied.`);
+// 3. Force environment variable for the engine
+process.env.DATABASE_URL = engineUrl;
 
-// Direct LibSQL client for the adapter
+console.log(`[DB_INIT] Engine URL: ${engineUrl}`);
+console.log(`[DB_INIT] Adapter URL: ${libSqlUrl.substring(0, 20)}...`);
+console.log(`[DB_INIT] Using LibSQL Adapter: ${libSqlUrl.startsWith('libsql') || libSqlUrl.startsWith('http')}`);
+
+// 4. Create LibSQL client
 export const rawLibsql = createClient({
-  url: finalUrl,
-  authToken: finalToken
+  url: libSqlUrl,
+  authToken: libSqlToken
 });
 
-const useLibsql = finalUrl.startsWith('libsql') || finalUrl.startsWith('http');
+const useLibsql = libSqlUrl.startsWith('libsql') || libSqlUrl.startsWith('http');
 
-// Prisma setup
-export const prisma = useLibsql
-  ? new PrismaClient({ adapter: new PrismaLibSQL(rawLibsql) })
-  : new PrismaClient();
+// 5. Create Prisma Client with EXPLICIT datasource override
+export const prisma = new PrismaClient({
+  adapter: useLibsql ? new PrismaLibSQL(rawLibsql) : undefined,
+  datasources: {
+    db: {
+      url: engineUrl // Categorical fix: satisfy engine with hardcoded valid file URL
+    }
+  }
+});

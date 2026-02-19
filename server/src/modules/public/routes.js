@@ -112,8 +112,9 @@ router.get('/debug-db', async (req, res) => {
       hasTursoUrl: Boolean(process.env.TURSO_DATABASE_URL),
       hasTursoToken: Boolean(process.env.TURSO_AUTH_TOKEN),
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
-      tursoUrlHead: (process.env.TURSO_DATABASE_URL || '').substring(0, 15),
-      dbUrlHead: (process.env.DATABASE_URL || '').substring(0, 15),
+      tursoUrlHead: String(process.env.TURSO_DATABASE_URL || '').substring(0, 20),
+      databaseUrlVal: String(process.env.DATABASE_URL || ''),
+      rawUrlVal: String(rawUrl || '')
     }
   };
 
