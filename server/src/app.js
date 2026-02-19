@@ -29,7 +29,7 @@ export function buildApp() {
     path.join(process.cwd(), '..', 'client', 'dist'), // Local root
     path.join(process.cwd(), 'client', 'dist') // Alternative
   ];
-  
+
   const clientDist = possiblePaths.find(p => fs.existsSync(p));
 
   if (clientDist) {
@@ -44,7 +44,11 @@ export function buildApp() {
 
   app.use((err, _req, res, _next) => {
     console.error(err);
-    res.status(500).json({ error: 'INTERNAL_ERROR' });
+    res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: err.message,
+      code: err.code
+    });
   });
 
   return app;
