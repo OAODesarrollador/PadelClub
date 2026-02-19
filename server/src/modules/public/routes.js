@@ -72,38 +72,49 @@ router.get('/club/:slug', async (req, res) => {
   return res.json(club);
 });
 
-router.get('/debug-db', async (req, res) => {
-  try {
-    const databaseUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '';
-    const databaseAuthToken = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '';
+import { createClient } from '@libsql/client';
 
+router.get('/debug-db', async (req, res) => {
+  const diagnostic = {
+    step: 'start',
+    env: {
+      allKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('TURSO')),
+      tursoUrl: (process.env.TURSO_DATABASE_URL || '').substring(0, 15),
+      dbUrl: (process.env.DATABASE_URL || '').substring(0, 15),
+    }
+  };
+
+  try {
+    // Test 1: Direct LibSQL Client
+    diagnostic.step = 'libsql_direct_init';
+    const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
+    const token = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN;
+
+    if (!url || url === 'undefined') {
+      throw new Error(`Critical: Database URL is literally "${url}"`);
+    }
+
+    const client = createClient({ url, authToken: token || undefined });
+    diagnostic.step = 'libsql_direct_query';
+    const rs = await client.execute('SELECT 1 as test');
+    diagnostic.libsqlOk = true;
+
+    // Test 2: Prisma
+    diagnostic.step = 'prisma_query';
     const clubCount = await prisma.club.count();
-    const demoClub = await prisma.club.findUnique({ where: { slug: 'club-paddle-demo' } });
+    diagnostic.prismaOk = true;
 
     return res.json({
       ok: true,
       clubCount,
-      demoClubFound: !!demoClub,
-      env: {
-        allKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('TURSO')),
-        tursoUrlPrefix: databaseUrl.substring(0, 12),
-        tursoUrlLength: databaseUrl.length,
-        hasToken: !!databaseAuthToken,
-        tokenPrefix: databaseAuthToken.substring(0, 4)
-      }
+      diagnostic
     });
   } catch (err) {
-    const databaseUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || '';
     return res.status(500).json({
-      error: 'DEBUG_DB_FAILED',
+      error: 'DIAGNOSTIC_FAILED',
       message: err.message,
-      stack: err.stack,
-      envDiagnose: {
-        tursoUrlType: typeof databaseUrl,
-        tursoUrlValue: String(databaseUrl).substring(0, 12),
-        tursoUrlLength: String(databaseUrl).length,
-        allRelevantKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('TURSO'))
-      }
+      step: diagnostic.step,
+      diagnostic
     });
   }
 });

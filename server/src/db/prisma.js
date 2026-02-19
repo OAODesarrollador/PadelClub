@@ -3,45 +3,63 @@ import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { createClient } from '@libsql/client';
 import '../config/env.js';
 
-// Helper to get clean env vars
-function getCleanEnv(key) {
-  const val = process.env[key];
-  if (!val || val === 'undefined' || val === 'null') return '';
-  return String(val).trim();
+const isVercel = process.env.VERCEL === '1';
+
+function getStrictEnv(key) {
+  const v = process.env[key];
+  if (typeof v !== 'string' || v.trim() === '' || v === 'undefined' || v === 'null') return null;
+  return v.trim();
 }
 
-const tursoUrl = getCleanEnv('TURSO_DATABASE_URL');
-const tursoToken = getCleanEnv('TURSO_AUTH_TOKEN');
-const legacyUrl = getCleanEnv('DATABASE_URL');
-const legacyToken = getCleanEnv('DATABASE_AUTH_TOKEN');
+let _prisma = null;
 
-const targetUrl = tursoUrl || legacyUrl;
-const targetToken = tursoToken || legacyToken;
+export const getPrisma = () => {
+  if (_prisma) return _prisma;
 
-const useLibsql = targetUrl.startsWith('libsql') || targetUrl.startsWith('http');
+  const tursoUrl = getStrictEnv('TURSO_DATABASE_URL');
+  const tursoToken = getStrictEnv('TURSO_AUTH_TOKEN');
+  const dbUrl = getStrictEnv('DATABASE_URL');
+  const dbToken = getStrictEnv('DATABASE_AUTH_TOKEN');
 
-console.log(`[PRISMA_INIT] Starting. isLibsql=${useLibsql}, urlFound=${!!targetUrl}`);
+  const url = tursoUrl || dbUrl;
+  const token = tursoToken || dbToken;
 
-export const prisma = (() => {
+  const useLibsql = !!url && (url.startsWith('libsql') || url.startsWith('http'));
+
+  console.log(`[PRISMA] Init request. useLibsql=${useLibsql}, urlFound=${!!url}`);
+
   if (useLibsql) {
     try {
-      // CRITICAL: Prevent Prisma's native engine from trying to parse the URL
-      // by removing it from process.env before initialization.
-      delete process.env.DATABASE_URL;
+      console.log(`[PRISMA] Using LibSQL adapter. URL prefix: ${url.substring(0, 15)}...`);
+
+      // Attempt to prevent native engine from seeing the Turso URL
+      // We do this by temporary overwriting it with a valid but harmless sqlite path
+      // if it exists in the environment.
+      if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('libsql')) {
+        process.env.DATABASE_URL = 'file:./dev.db';
+      }
 
       const libsql = createClient({
-        url: targetUrl,
-        authToken: targetToken || undefined
+        url: url,
+        authToken: token || undefined
       });
 
-      return new PrismaClient({
+      _prisma = new PrismaClient({
         adapter: new PrismaLibSQL(libsql)
       });
-    } catch (e) {
-      console.error('[PRISMA_INIT] Failed to initialize LibSQL adapter:', e);
-      // Fallback to avoid complete closure-level crash if possible
-      return new PrismaClient();
+      console.log('[PRISMA] Client created with LibSQL adapter.');
+      return _prisma;
+    } catch (err) {
+      console.error('[PRISMA] LibSQL adapter init failed. Falling back.', err);
     }
   }
-  return new PrismaClient();
-})();
+
+  console.log('[PRISMA] Using native Prisma Client (sqlite).');
+  _prisma = new PrismaClient();
+  return _prisma;
+};
+
+// Export a proxy or the instance for convenience
+export const prisma = new Proxy({}, {
+  get: (target, prop) => getPrisma()[prop]
+});
