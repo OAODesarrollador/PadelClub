@@ -16,6 +16,7 @@
     "build": "node -e \"console.log('server build: no transpilation needed')\""
   },
   "dependencies": {
+    "@libsql/client": "^0.17.0",
     "@prisma/adapter-libsql": "^6.19.2",
     "@prisma/client": "^6.3.1",
     "bcryptjs": "^2.4.3",

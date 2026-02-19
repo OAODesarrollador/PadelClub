@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSQL } from '@prisma/adapter-libsql';
+import { createClient } from '@libsql/client';
 import '../config/env.js';
 
 const databaseUrl = process.env.DATABASE_URL || '';
@@ -11,10 +12,13 @@ const useLibsql =
   databaseUrl.startsWith('https://');
 
 export const prisma = useLibsql
-  ? new PrismaClient({
-      adapter: new PrismaLibSQL({
-        url: databaseUrl,
-        authToken: databaseAuthToken
-      })
-    })
+  ? (() => {
+    const libsql = createClient({
+      url: databaseUrl,
+      authToken: databaseAuthToken
+    });
+    return new PrismaClient({
+      adapter: new PrismaLibSQL(libsql)
+    });
+  })()
   : new PrismaClient();
