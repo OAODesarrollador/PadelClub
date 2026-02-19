@@ -20,6 +20,7 @@ export const env = {
   port: Number(process.env.APP_PORT || 4000),
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   dbProvider: process.env.DB_PROVIDER || 'sqlite',
+  dbAuthToken: process.env.DATABASE_AUTH_TOKEN,
   holdMinutes: Number(process.env.HOLD_MINUTES || 7),
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || 'dev-access',
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh',
