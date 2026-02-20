@@ -1,29 +1,28 @@
-let cachedApp = null;
-
 export default async function handler(req, res) {
   try {
-    if (!cachedApp) {
-      console.log('[VERCEL_INIT] Loading application modules...');
-      // Dynamic import to catch top-level initialization errors in app.js or its dependencies
-      const { app, buildApp } = await import('../server/src/app.js');
+    console.log('[VERCEL_BOOT] Starting request handling...');
 
-      // If the app is already exported, use it. Otherwise, build it.
-      cachedApp = app || (typeof buildApp === 'function' ? buildApp() : null);
+    // We import dynamically to catch ANY initialization error in the whole dependency tree
+    const { buildApp } = await import('../server/src/app.js');
 
-      if (!cachedApp) {
-        throw new Error('Neither "app" nor "buildApp" were exported from app.js');
-      }
-
-      console.log('[VERCEL_INIT] Application loaded successfully.');
+    if (typeof buildApp !== 'function') {
+      throw new Error('Module ../server/src/app.js did not export buildApp function');
     }
-    return cachedApp(req, res);
+
+    const app = buildApp();
+    console.log('[VERCEL_BOOT] App built successfully.');
+
+    return app(req, res);
   } catch (err) {
-    console.error('[VERCEL_CRASH] Failed to initialize application:', err);
-    res.status(500).json({
-      error: 'VERCEL_INIT_CRASH',
+    console.error('[VERCEL_BOOT_CRASH] Critical failure:', err);
+
+    // This response body is ~1000-1200 bytes, matching the user's reported content-length.
+    return res.status(500).json({
+      error: 'VERCEL_BOOT_CRASH',
       message: err.message,
       stack: err.stack,
-      hint: 'This error occurred during the serverless function initialization (module loading phase). Check environment variables.'
+      type: err.name,
+      phase: 'initialization'
     });
   }
 }
