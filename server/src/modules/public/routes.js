@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db } from '../../db/db.js';
 import { buildDaySlots, getActiveRangesForDate, isInsideActiveRanges } from '../../lib/schedule.js';
 import { calculatePriceInMemory } from '../../services/pricingService.js';
-import { getReservationsForPublic, getBlocksForPublic } from '../../services/reservationService.js';
+import { createHold, confirmReservation, getReservationsForPublic, getBlocksForPublic } from '../../services/reservationService.js';
 
 const router = Router();
 
@@ -90,11 +90,11 @@ router.get('/availability', async (req, res) => {
   }
 });
 
+// ── Legacy routes (keep for compatibility) ──────────────────────────────────
 router.post('/hold', async (req, res) => {
   try {
-    const { createHold } = await import('../../services/reservationService.js');
     const result = await createHold(req.body);
-    return res.status(201).json(result);
+    return res.status(201).json({ reservation: result, manageToken: result.manageToken });
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }
@@ -102,7 +102,6 @@ router.post('/hold', async (req, res) => {
 
 router.post('/confirm', async (req, res) => {
   try {
-    const { confirmReservation } = await import('../../services/reservationService.js');
     const result = await confirmReservation(req.body);
     return res.json(result);
   } catch (err) {
@@ -110,6 +109,54 @@ router.post('/confirm', async (req, res) => {
   }
 });
 
+// ── Reservation routes (expected by frontend) ────────────────────────────────
+router.post('/reservations/hold', async (req, res) => {
+  try {
+    const result = await createHold(req.body);
+    // Frontend expects: hold.reservation.id and hold.manageToken
+    return res.status(201).json({
+      reservation: { id: result.id, totalPrice: result.totalPrice },
+      manageToken: result.manageToken
+    });
+  } catch (err) {
+    console.error('[HOLD_ERROR]', err);
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/reservations/confirm', async (req, res) => {
+  try {
+    const result = await confirmReservation(req.body);
+    return res.json(result);
+  } catch (err) {
+    console.error('[CONFIRM_ERROR]', err);
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/reservations/:id/summary', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reservation = await db.queryFirst('SELECT * FROM Reservation WHERE id = ?', [id]);
+    if (!reservation) return res.status(404).json({ error: 'NOT_FOUND' });
+
+    const court = await db.queryFirst('SELECT * FROM Court WHERE id = ?', [reservation.courtId]);
+    const club = await db.queryFirst('SELECT * FROM Club WHERE id = ?', [reservation.clubId]);
+
+    return res.json({
+      reservation: {
+        ...reservation,
+        court: court || {},
+        club: club || {}
+      }
+    });
+  } catch (err) {
+    console.error('[SUMMARY_ERROR]', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Debug ────────────────────────────────────────────────────────────────────
 router.get('/debug-db', async (req, res) => {
   try {
     const club = await db.queryFirst('SELECT COUNT(*) as count FROM Club');
