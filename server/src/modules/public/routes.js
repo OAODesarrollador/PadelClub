@@ -37,7 +37,7 @@ router.get('/availability', async (req, res) => {
 
     const schedule = club.schedule || {};
     const activeRanges = getActiveRangesForDate(schedule, date);
-    const rawSlots = buildDaySlots(date, 30);
+    const rawSlots = buildDaySlots(date, 60);
 
     const data = rawSlots.map((slot) => {
       const startAt = new Date(slot.startAt);
