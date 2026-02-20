@@ -49,14 +49,14 @@ export async function createHold({ clubId, courtId, startAt, durationMinutes, us
 export async function confirmReservation({ reservationId, paymentMethod, paymentId }) {
   return await db.transaction(async (tx) => {
     const res = await tx.execute({
-      sql: 'SELECT * FROM Reservation WHERE id = ? AND status = "HOLD"',
+      sql: "SELECT * FROM Reservation WHERE id = ? AND status = 'HOLD'",
       args: [reservationId]
     });
     const reservation = res.rows[0];
     if (!reservation) throw new Error('Reserva no encontrada o ya confirmada');
 
     await tx.execute({
-      sql: 'UPDATE Reservation SET status = "CONFIRMED", updatedAt = ? WHERE id = ?',
+      sql: "UPDATE Reservation SET status = 'CONFIRMED', updatedAt = ? WHERE id = ?",
       args: [new Date().toISOString(), reservationId]
     });
 
@@ -89,7 +89,7 @@ export async function cancelByManageToken(token) {
   if (!reservation) throw new Error('Token inválido');
 
   await db.execute(
-    'UPDATE Reservation SET status = "CANCELED", updatedAt = ? WHERE id = ?',
+    "UPDATE Reservation SET status = 'CANCELED', updatedAt = ? WHERE id = ?",
     [new Date().toISOString(), reservation.id]
   );
   return { success: true };
@@ -100,7 +100,7 @@ export async function getReservationsForPublic(clubId, date) {
   const end = `${date}T23:59:59.999Z`;
 
   return await db.query(
-    'SELECT * FROM Reservation WHERE clubId = ? AND startAt >= ? AND startAt <= ? AND status != "CANCELED"',
+    "SELECT * FROM Reservation WHERE clubId = ? AND startAt >= ? AND startAt <= ? AND status != 'CANCELED'",
     [clubId, start, end]
   );
 }
