@@ -6,19 +6,12 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "prisma:dev": "prisma migrate dev --name init",
-    "prisma:pg:generate": "prisma generate --schema prisma/schema.postgresql.prisma",
-    "prisma:pg:migrate": "prisma migrate deploy --schema prisma/schema.postgresql.prisma",
     "seed": "node prisma/seed.js",
     "test": "vitest run",
     "build": "node -e \"console.log('server build: no transpilation needed')\""
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
-    "@prisma/adapter-libsql": "^6.3.1",
-    "@prisma/client": "^6.3.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -34,7 +27,6 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "prisma": "^6.3.1",
     "supertest": "^7.0.0",
     "vitest": "^2.1.8"
   }

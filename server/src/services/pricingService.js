@@ -1,54 +1,26 @@
-import { prisma, rawLibsql } from '../db/prisma.js';
+import { db } from '../db/db.js';
 
-export async function calculatePrice({ clubId, courtId, startAt, durationMinutes }) {
-  let court;
-  try {
-    court = await prisma.court.findUnique({ where: { id: courtId } });
-  } catch (err) {
-    console.warn(`[PRICING_FALLBACK] Prisma court fetch failed: ${err.message}. Using raw SQL.`);
-    const rs = await rawLibsql.execute({
-      sql: 'SELECT * FROM Court WHERE id = ? LIMIT 1',
-      args: [courtId]
-    });
-    court = rs.rows[0];
-  }
+export async function calculatePrice({ courtId, startAt, durationMinutes }) {
+  const court = await db.queryFirst('SELECT * FROM Court WHERE id = ?', [courtId]);
+  if (!court) throw new Error('Cancha no encontrada');
 
-  const base = court?.basePrice || 0;
-  const date = new Date(startAt);
-  const day = date.getDay();
-  const minute = date.getHours() * 60 + date.getMinutes();
+  const basePrice = court.price;
+  const startDate = new Date(startAt);
+  const day = startDate.getDay();
+  const minute = startDate.getHours() * 60 + startDate.getMinutes();
 
-  let rules;
-  try {
-    rules = await prisma.pricingRule.findMany({
-      where: {
-        clubId,
-        active: true,
-        dayOfWeek: day,
-        startMinute: { lte: minute },
-        endMinute: { gt: minute },
-        OR: [{ courtId: null }, { courtId }]
-      },
-      orderBy: { multiplier: 'desc' }
-    });
-  } catch (err) {
-    console.warn(`[PRICING_FALLBACK] Prisma rules fetch failed: ${err.message}. Using raw SQL.`);
-    const rs = await rawLibsql.execute({
-      sql: `SELECT * FROM PricingRule 
-            WHERE clubId = ? 
-            AND active = 1 
-            AND dayOfWeek = ? 
-            AND startMinute <= ? 
-            AND endMinute > ? 
-            AND (courtId IS NULL OR courtId = ?)
-            ORDER BY multiplier DESC`,
-      args: [clubId, day, minute, minute, courtId]
-    });
-    rules = rs.rows;
-  }
+  const rules = await db.query(
+    `SELECT * FROM PricingRule 
+     WHERE clubId = ? AND active = 1 AND dayOfWeek = ? 
+     AND startMinute <= ? AND endMinute > ?
+     AND (courtId IS NULL OR courtId = ?)`,
+    [court.clubId, day, minute, minute, courtId]
+  );
 
-  const best = rules[0];
-  if (!best) return Math.round(base * (durationMinutes / 60));
+  const sortedRules = rules.sort((a, b) => b.multiplier - a.multiplier);
+  const best = sortedRules[0];
+
+  if (!best) return Math.round(basePrice * (durationMinutes / 60));
   if (best.fixedPrice != null) return Math.round(best.fixedPrice * (durationMinutes / 60));
-  return Math.round(base * best.multiplier * (durationMinutes / 60));
+  return Math.round(basePrice * best.multiplier * (durationMinutes / 60));
 }

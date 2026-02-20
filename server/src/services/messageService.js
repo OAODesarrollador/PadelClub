@@ -1,26 +1,36 @@
-import { prisma } from '../db/prisma.js';
+import { db } from '../db/db.js';
 
-export class MessageProvider {
-  async send({ reservationId, destination, payload }) {
-    try {
-      await prisma.messageLog.create({
-        data: {
-          reservationId,
-          channel: 'WA_LINK',
-          destination,
-          payload: JSON.stringify(payload),
-          success: true
-        }
-      });
-    } catch (err) {
-      console.warn(`[MessageProvider] Failed to log message for reservation ${reservationId}: ${err.message}`);
-    }
-    return { ok: true };
+export async function logMessage({ reservationId, phone, type, provider, status, externalId, error }) {
+  try {
+    await db.execute(
+      `INSERT INTO MessageLog (id, reservationId, phone, type, provider, status, externalId, error, createdAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        crypto.randomUUID(),
+        reservationId,
+        phone,
+        type,
+        provider,
+        status,
+        externalId,
+        error,
+        new Date().toISOString()
+      ]
+    );
+  } catch (err) {
+    console.error(`[MESSAGE_LOG_ERROR] ${err.message}`);
   }
 }
 
-export const messageProvider = new MessageProvider();
-
-export function buildWhatsAppLink(phone, text) {
-  return `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(text)}`;
+export function buildWhatsAppLink(phone, message) {
+  const cleanPhone = String(phone || '').replace(/\D/g, '');
+  if (!cleanPhone) return null;
+  return `https://wa.me/${cleanPhone}/?text=${encodeURIComponent(message)}`;
 }
+
+export const messageProvider = {
+  async send(phone, message) {
+    console.log(`[MOCKED_SMS] To: ${phone}, Msg: ${message}`);
+    return { success: true, id: `msg-${Date.now()}` };
+  }
+};

@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "cd server && npx prisma generate && cd ../client && npm run build && cd .. && node scripts/prepare-vercel-dist.mjs",
+    "build": "cd client && npm run build && cd .. && node scripts/prepare-vercel-dist.mjs",
     "test": "npm run test -w server",
     "migrate:turso": "node scripts/migrate-sqlite-to-turso.mjs"
   },
