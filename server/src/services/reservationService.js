@@ -2,9 +2,16 @@ import { db } from '../db/db.js';
 import crypto from 'crypto';
 import { calculatePrice } from './pricingService.js';
 
-export async function createHold({ clubId, courtId, startAt, durationMinutes, userName, userPhone }) {
+export async function createHold({ clubId, courtId, startAt, durationMinutes, userName, userPhone, customerName, customerWhatsapp, customerEmail, note }) {
   const club = await db.queryFirst('SELECT * FROM Club WHERE id = ? OR slug = ?', [clubId, clubId]);
   if (!club) throw new Error('Club no encontrado');
+
+  // Support both old field names and new frontend field names
+  const name = customerName || userName || '';
+  const phone = customerWhatsapp || userPhone || '';
+
+  if (!name) throw new Error('Nombre requerido');
+  if (!phone) throw new Error('Teléfono requerido');
 
   const realClubId = club.id;
   const startDate = new Date(startAt);
@@ -14,8 +21,8 @@ export async function createHold({ clubId, courtId, startAt, durationMinutes, us
   const overlap = await db.queryFirst(
     `SELECT id FROM Reservation 
      WHERE courtId = ? AND status != 'CANCELED' 
-     AND ((startAt < ? AND endAt > ?) OR (startAt < ? AND endAt > ?))`,
-    [courtId, endDate.toISOString(), startDate.toISOString(), endDate.toISOString(), startDate.toISOString()]
+     AND startAt < ? AND endAt > ?`,
+    [courtId, endDate.toISOString(), startDate.toISOString()]
   );
 
   if (overlap) throw new Error('El horario ya está ocupado');
@@ -24,24 +31,49 @@ export async function createHold({ clubId, courtId, startAt, durationMinutes, us
   const reservationId = crypto.randomUUID();
   const manageToken = crypto.randomBytes(32).toString('hex');
 
-  await db.execute(
-    `INSERT INTO Reservation (id, clubId, courtId, startAt, endAt, userName, userPhone, totalPrice, status, manageToken, createdAt, updatedAt) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      reservationId,
-      realClubId,
-      courtId,
-      startDate.toISOString(),
-      endDate.toISOString(),
-      userName,
-      userPhone,
-      price,
-      'HOLD',
-      manageToken,
-      new Date().toISOString(),
-      new Date().toISOString()
-    ]
-  );
+  // Try with Prisma schema column names first
+  try {
+    await db.execute(
+      `INSERT INTO Reservation (id, clubId, courtId, startAt, endAt, customerName, customerWhatsapp, customerEmail, note, amount, status, manageTokenHash, createdAt, updatedAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        reservationId,
+        realClubId,
+        courtId,
+        startDate.toISOString(),
+        endDate.toISOString(),
+        name,
+        phone,
+        customerEmail || null,
+        note || null,
+        price,
+        'HOLD',
+        manageToken,
+        new Date().toISOString(),
+        new Date().toISOString()
+      ]
+    );
+  } catch (e1) {
+    // Fallback: try with alternative column names
+    await db.execute(
+      `INSERT INTO Reservation (id, clubId, courtId, startAt, endAt, userName, userPhone, totalPrice, status, manageToken, createdAt, updatedAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        reservationId,
+        realClubId,
+        courtId,
+        startDate.toISOString(),
+        endDate.toISOString(),
+        name,
+        phone,
+        price,
+        'HOLD',
+        manageToken,
+        new Date().toISOString(),
+        new Date().toISOString()
+      ]
+    );
+  }
 
   return { id: reservationId, manageToken, totalPrice: price };
 }
