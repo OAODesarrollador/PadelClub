@@ -63,6 +63,7 @@ router.get('/availability', async (req, res) => {
             courtId: court.id,
             courtName: court.name,
             available: isWithinActiveRange && !isBlocked && !isReserved,
+            startAllowed: isWithinActiveRange && !isBlocked && !isReserved,
             price: 0 // Will calculate if needed
           };
         })
