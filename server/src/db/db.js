@@ -1,7 +1,7 @@
 import { createClient } from '@libsql/client';
 import '../config/env.js';
 
-const rawUrl = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || 'file:./prisma/dev.db').trim();
+const rawUrl = (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || 'file:local.db').trim();
 const rawToken = (process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN || '').trim();
 
 export const client = createClient({
