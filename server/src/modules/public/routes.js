@@ -91,8 +91,12 @@ router.get('/availability', async (req, res) => {
       slots: data
     });
   } catch (err) {
-    console.error(`[AVAILABILITY_ERROR] ${err.message}`);
-    return res.status(500).json({ error: 'SERVER_ERROR' });
+    console.error(`[AVAILABILITY_ERROR]`, err);
+    return res.status(500).json({
+      error: 'AVAILABILITY_ERROR',
+      message: err.message,
+      stack: err.stack
+    });
   }
 });
 
