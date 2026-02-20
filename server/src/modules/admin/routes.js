@@ -24,7 +24,7 @@ const requireAuth = async (req, res, next) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   const user = await db.queryFirst('SELECT * FROM StaffUser WHERE email = ? AND active = 1', [email]);
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
   }
 
@@ -41,7 +41,7 @@ router.post('/clubs', requireAuth, async (req, res) => {
   const id = crypto.randomUUID();
   const { name, slug, address, phone, schedule, basePrice } = req.body;
   await db.execute(
-    'INSERT INTO Club (id, name, slug, address, phone, schedule, basePrice, active, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)',
+    'INSERT INTO Club (id, name, slug, address, phone, scheduleJson, basePrice, active, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)',
     [id, name, slug, address, phone, JSON.stringify(schedule), basePrice || 0, new Date().toISOString(), new Date().toISOString()]
   );
   const club = await db.queryFirst('SELECT * FROM Club WHERE id = ?', [id]);

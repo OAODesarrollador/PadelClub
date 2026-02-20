@@ -4,7 +4,7 @@ export async function calculatePrice({ courtId, startAt, durationMinutes }) {
   const court = await db.queryFirst('SELECT * FROM Court WHERE id = ?', [courtId]);
   if (!court) throw new Error('Cancha no encontrada');
 
-  const basePrice = court.price;
+  const basePrice = court.basePrice;
   const startDate = new Date(startAt);
   const day = startDate.getDay();
   const minute = startDate.getHours() * 60 + startDate.getMinutes();

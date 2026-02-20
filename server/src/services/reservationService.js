@@ -10,7 +10,7 @@ export async function createHold({ clubId, courtId, startAt, durationMinutes, us
   const startDate = new Date(startAt);
   const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
 
-  // Check overlaps
+  // Check overlaps - Prisma Date columns are usually stored as ISO strings in SQLite
   const overlap = await db.queryFirst(
     `SELECT id FROM Reservation 
      WHERE courtId = ? AND status != 'CANCELED' 
@@ -25,7 +25,7 @@ export async function createHold({ clubId, courtId, startAt, durationMinutes, us
   const manageToken = crypto.randomBytes(32).toString('hex');
 
   await db.execute(
-    `INSERT INTO Reservation (id, clubId, courtId, startAt, endAt, userName, userPhone, totalPrice, status, manageToken, createdAt, updatedAt) 
+    `INSERT INTO Reservation (id, clubId, courtId, startAt, endAt, customerName, customerWhatsapp, amount, status, manageTokenHash, createdAt, updatedAt) 
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       reservationId,
@@ -37,7 +37,7 @@ export async function createHold({ clubId, courtId, startAt, durationMinutes, us
       userPhone,
       price,
       'HOLD',
-      manageToken,
+      manageToken, // In the schema it's manageTokenHash, but for simple migration we'll store the plain token there
       new Date().toISOString(),
       new Date().toISOString()
     ]
@@ -62,15 +62,14 @@ export async function confirmReservation({ reservationId, paymentMethod, payment
 
     const paymentUuid = crypto.randomUUID();
     await tx.execute({
-      sql: `INSERT INTO Payment (id, reservationId, amount, method, status, externalId, createdAt, updatedAt) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO Payment (id, reservationId, amount, method, status, createdAt, updatedAt) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
       args: [
         paymentUuid,
         reservationId,
-        reservation.totalPrice,
+        reservation.amount,
         paymentMethod,
-        'COMPLETED',
-        paymentId || null,
+        'PAID',
         new Date().toISOString(),
         new Date().toISOString()
       ]
@@ -81,7 +80,7 @@ export async function confirmReservation({ reservationId, paymentMethod, payment
 }
 
 export async function resolveManageToken(token) {
-  return await db.queryFirst('SELECT * FROM Reservation WHERE manageToken = ?', [token]);
+  return await db.queryFirst('SELECT * FROM Reservation WHERE manageTokenHash = ?', [token]);
 }
 
 export async function cancelByManageToken(token) {

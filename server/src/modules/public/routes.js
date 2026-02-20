@@ -35,7 +35,7 @@ router.get('/availability', async (req, res) => {
     const reservations = await getReservationsForPublic(club.id, date);
     const blocks = await getBlocksForPublic(club.id);
 
-    const schedule = club.schedule || {};
+    const schedule = club.scheduleJson || '{}';
     const activeRanges = getActiveRangesForDate(schedule, date);
     const rawSlots = buildDaySlots(date, 30);
 
