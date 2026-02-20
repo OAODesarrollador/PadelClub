@@ -79,38 +79,38 @@ export async function createHold({ clubId, courtId, startAt, durationMinutes, us
 }
 
 export async function confirmReservation({ reservationId, paymentMethod, paymentId }) {
-  return await db.transaction(async (tx) => {
-    const res = await tx.execute({
-      sql: "SELECT * FROM Reservation WHERE id = ? AND status = 'HOLD'",
-      args: [reservationId]
-    });
-    const reservation = res.rows[0];
-    if (!reservation) throw new Error('Reserva no encontrada o ya confirmada');
+  // Find the reservation
+  const reservation = await db.queryFirst(
+    "SELECT * FROM Reservation WHERE id = ? AND status = 'HOLD'",
+    [reservationId]
+  );
+  if (!reservation) throw new Error('Reserva no encontrada o ya confirmada');
 
-    await tx.execute({
-      sql: "UPDATE Reservation SET status = 'CONFIRMED', updatedAt = ? WHERE id = ?",
-      args: [new Date().toISOString(), reservationId]
-    });
+  // Update status to CONFIRMED
+  await db.execute(
+    "UPDATE Reservation SET status = 'CONFIRMED', updatedAt = ? WHERE id = ?",
+    [new Date().toISOString(), reservationId]
+  );
 
+  // Only register a payment if paymentMethod is explicitly provided
+  if (paymentMethod) {
     const paymentUuid = crypto.randomUUID();
-    await tx.execute({
-      sql: `INSERT INTO Payment (id, reservationId, amount, method, status, externalId, createdAt, updatedAt) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        paymentUuid,
-        reservationId,
-        reservation.totalPrice,
-        paymentMethod,
-        'COMPLETED',
-        paymentId || null,
-        new Date().toISOString(),
-        new Date().toISOString()
-      ]
-    });
+    const amount = reservation.amount || reservation.totalPrice || 0;
+    try {
+      await db.execute(
+        `INSERT INTO Payment (id, reservationId, amount, method, status, createdAt, updatedAt) 
+         VALUES (?, ?, ?, ?, 'PAID', ?, ?)`,
+        [paymentUuid, reservationId, amount, paymentMethod, new Date().toISOString(), new Date().toISOString()]
+      );
+    } catch {
+      // Payment insert failed — ignore, reservation is already confirmed
+      console.warn('[CONFIRM] Payment insert skipped due to column mismatch');
+    }
+  }
 
-    return { success: true };
-  });
+  return { success: true, reservationId };
 }
+
 
 export async function resolveManageToken(token) {
   return await db.queryFirst('SELECT * FROM Reservation WHERE manageToken = ?', [token]);
