@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { db } from '../../db/db.js';
 import { buildDaySlots, getActiveRangesForDate, isInsideActiveRanges } from '../../lib/schedule.js';
-import { calculatePriceInMemory } from '../../services/pricingService.js';
-import { getReservationsForPublic, getBlocksForPublic } from '../../services/reservationService.js';
+import { calculatePrice } from '../../services/pricingService.js';
+import { createHold, confirmReservation, getReservationsForPublic, getBlocksForPublic } from '../../services/reservationService.js';
 
 const router = Router();
 
@@ -16,8 +16,8 @@ router.get('/club/:slug', async (req, res) => {
 
     return res.json(club);
   } catch (err) {
-    console.error(`[PUBLIC_CLUB_ERROR]`, err);
-    return res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error(`[PUBLIC_CLUB_ERROR] ${err.message}`);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
   }
 });
 
@@ -35,8 +35,8 @@ router.get('/availability', async (req, res) => {
     const reservations = await getReservationsForPublic(club.id, date);
     const blocks = await getBlocksForPublic(club.id);
 
-    const scheduleJson = club.scheduleJson || '{}';
-    const activeRanges = getActiveRangesForDate(scheduleJson, date);
+    const schedule = club.schedule || {};
+    const activeRanges = getActiveRangesForDate(schedule, date);
     const rawSlots = buildDaySlots(date, 30);
 
     const data = rawSlots.map((slot) => {
@@ -59,17 +59,28 @@ router.get('/availability', async (req, res) => {
             ((new Date(r.startAt) < endAt && new Date(r.endAt) > startAt))
           );
 
-          const available = isWithinActiveRange && !isBlocked && !isReserved;
-
           return {
             courtId: court.id,
             courtName: court.name,
-            available,
-            price: available ? calculatePriceInMemory({ court, rules, startAt, durationMinutes }) : 0
+            available: isWithinActiveRange && !isBlocked && !isReserved,
+            price: 0 // Will calculate if needed
           };
         })
       };
     });
+
+    // Populate prices for available slots
+    for (const slot of data) {
+      for (const c of slot.courts) {
+        if (c.available) {
+          c.price = await calculatePrice({
+            courtId: c.courtId,
+            startAt: slot.startAt,
+            durationMinutes
+          });
+        }
+      }
+    }
 
     return res.json({
       clubId: club.id,
@@ -80,18 +91,13 @@ router.get('/availability', async (req, res) => {
       slots: data
     });
   } catch (err) {
-    console.error(`[AVAILABILITY_ERROR]`, err);
-    return res.status(500).json({
-      error: 'AVAILABILITY_ERROR',
-      message: err.message,
-      stack: err.stack
-    });
+    console.error(`[AVAILABILITY_ERROR] ${err.message}`);
+    return res.status(500).json({ error: 'SERVER_ERROR' });
   }
 });
 
 router.post('/hold', async (req, res) => {
   try {
-    const { createHold } = await import('../../services/reservationService.js');
     const result = await createHold(req.body);
     return res.status(201).json(result);
   } catch (err) {
@@ -101,7 +107,6 @@ router.post('/hold', async (req, res) => {
 
 router.post('/confirm', async (req, res) => {
   try {
-    const { confirmReservation } = await import('../../services/reservationService.js');
     const result = await confirmReservation(req.body);
     return res.json(result);
   } catch (err) {
@@ -112,9 +117,9 @@ router.post('/confirm', async (req, res) => {
 router.get('/debug-db', async (req, res) => {
   try {
     const club = await db.queryFirst('SELECT COUNT(*) as count FROM Club');
-    return res.json({ ok: true, count: club?.count, engine: 'Raw LibSQL', env: process.env.NODE_ENV });
+    return res.json({ ok: true, count: club?.count, engine: 'Raw LibSQL' });
   } catch (err) {
-    return res.json({ ok: false, message: err.message, stack: err.stack });
+    return res.json({ ok: false, message: err.message });
   }
 });
 
